@@ -1,0 +1,157 @@
+---
+title: "GRM Forests for Robust DIF Detection"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{GRM Forests for Robust DIF Detection}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5
+)
+```
+
+# Introduction
+
+GRM Forests extend GRM Trees by creating ensembles of trees to provide more robust variable importance measures. This vignette covers:
+
+* GRM Forest implementation
+
+* Variable importance and variable importance plot.
+
+See the vignette on getting started with grmtree package for a more detailed walkthrough of the tree-based graded response theory model (GRMTree).
+
+# Install and Load required packages
+To implement the tree-based GRM (GRMTree), you will install the following packages if not previously installed.
+```{r, eval=F}
+## Install packages from CRAN repository
+install.packages(c("tidyverse", "grmtree", "mirt"))
+```
+
+Once installed, load the packages as follows:
+```{r, message=FALSE, warning=FALSE}
+library(dplyr)        # For data manipulation
+library(grmtree)      # For tree-based GRM DIF Test
+library(mirt)         # For traditional GRM
+```
+
+# Import and prepare the data
+
+The data set used in this demonstration is a tidy version of the data originally collected from APPROACH. A lot of data cleaning and pre-processing have been done (not shown in this demonstration). Also, the data is not publicly available due to privacy and ethical considerations.
+
+
+```{r, message=FALSE}
+## Set the file path
+data_path <- system.file("tempdata/mos_data.rda", package = "grmtree")
+
+## Load the MOS data
+load(data_path)
+
+## Prepare the data
+resp.data <- mos_data %>% 
+  mutate_at(vars(starts_with("MOS")), as.ordered) %>% 
+  mutate_at(vars(c(sex, residency, depressed,
+                   Education, job, smoker,
+                   multimorbidity)), as.factor) 
+
+## Explore the data
+head(resp.data)
+
+## Check the structure of the data
+glimpse(resp.data)
+
+## Create response as outcomes
+resp.data$resp <- data.matrix(resp.data[, 1:8])
+```
+
+# GRM Forests Implementation
+
+## Define the forest control parameters
+```{r}
+## Get help on the control parameter
+# ?grmforest.control
+
+## GRMTree control parameters with Benjamini-Hochberg 
+grm_control <- grmtree.control(
+  minbucket = 400,
+  p_adjust = "BH", alpha = 0.05)
+
+## Define the forest control parameters
+forest_control <- grmforest.control(
+  n_tree = 5, # Number of trees
+  sampling = "subsample",  # Resampling method; bootstrap also available
+  sample_fraction = 0.632,
+  mtry = sqrt(9),  # Usually the square root of the number of covariates
+  control = grm_control,
+  remove_dead_trees = TRUE, # Remove any null GRMTree
+  seed = 123
+)
+```
+
+## Grow the GRM Forest
+
+```{r}
+## Fit the GRM forest
+mos_forest <- grmforest(
+  resp ~ sex + age + bmi + Education + 
+  residency + depressed + job + multimorbidity + smoker,  
+  data = resp.data,
+  control = forest_control
+)
+
+## Get the summary of the fitted forest
+summary(mos_forest)
+print(mos_forest)
+
+## Plot a tree in the forest
+plot(mos_forest$trees[[2]])
+```
+
+# Variable Importance
+
+## Compute the variable importance of each covariate
+```{r}
+## Calculate the variable importance
+importance <- varimp(mos_forest, seed = 123, verbose = T)
+
+## Print the result of the variable importance
+print(importance)
+```
+
+## Plot the variable importance of each variable 
+
+Here `plot.varimp` creates a bar plot of variable importance scores with options for both ggplot2 and base R graphics.
+```{r}
+## Plot the variable importance scores (ggplot is the default)
+plot(importance)
+
+## Plot onlt the top 5 importance variables
+plot(importance, xlab = "", top_n = 5)
+
+## Plot the base R version
+plot(importance, use_ggplot = FALSE)
+
+## Custom colors
+plot(importance, col = c("green", "red"))
+
+## Rename the variable names in the order from the variable importance result
+names(importance) <- c("Age", "Sex", "Residency", "BMI",
+                       "Depression", "Multimorbidity", "Education",
+                       "Employment", "Smoking Status")
+
+## Now create the plot with informative names
+plot(importance)
+```
+
+
+# Conclusion
+
+GRM Forests provide more stable DIF detection by aggregating across many trees. Key advantages include robust variable importance measures, reduced overfitting, and better handling of complex interactions.
+
+
