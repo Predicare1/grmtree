@@ -4,7 +4,7 @@ This is the first official release of the `grmtree` package, providing methods f
 
 -   Introduced `grmtree()` for fitting tree-based graded response models.
 
--   Added `grmforest()` for building forests of GRM trees (experimental).
+-   Added `grmforest()` for building forests of GRM trees.
 
 -   Implemented custom `print()` and `plot()` methods for GRM tree/forest objects.
 
