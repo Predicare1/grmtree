@@ -1,10 +1,3 @@
----
-title: "Read Me"
-output: md_document
-editor_options: 
-  markdown: 
-    wrap: 72
----
 
 # grmtree: Recursive Partitioning for Graded Response Models
 
