@@ -1,0 +1,30 @@
+#' Medical Outcomes Study Social Support Survey (MOS-SS) Test Data
+#'
+#' A dataset containing sample responses to the MOS-SS emotional domain items
+#' and demographic variables. This data is provided for testing and
+#' demonstration purposes within the grmtree package. The items are numbered
+#' 1-5, representing None of the time,	A little of the time,	Some of the
+#' time,	Most of the time, All of the time, respectively.
+#'
+#' @format A tibble with 3,500 rows and 17 variables:
+#' \describe{
+#'   \item{MOS_Listen}{Someone you can count on to listen to you when you need to talk (1-5 Likert scale)}
+#'   \item{MOS_Info}{Someone to give you information to help you understand a situation (1-5 Likert scale)}
+#'   \item{MOS_Advice_Crisis}{Someone to give good advice about a crisis (1-5 Likert scale)}
+#'   \item{MOS_Confide}{Someone to confide in or talk to about yourself or your problems (1-5 Likert scale)}
+#'   \item{MOS_Advice_Want}{Someone whose advice you really want (1-5 Likert scale)}
+#'   \item{MOS_Fears}{Someone to share private worries or fears (1-5 Likert scale)}
+#'   \item{MOS_Personal}{Someone to turn to for suggestions about how to deal with a personal problem (1-5 Likert scale)}
+#'   \item{MOS_Understand}{Someone who understands your problems (1-5 Likert scale)}
+#'   \item{sex}{Gender (Male, Female)}
+#'   \item{age}{Age in years (numeric)}
+#'   \item{residency}{Residence location (rural, urban)}
+#'   \item{depressed}{Depression status (No, Yes)}
+#'   \item{bmi}{Body Mass Index (numeric)}
+#'   \item{Education}{Education level (Primary/High school, College/University)}
+#'   \item{job}{Employment status (Employed, Unemployed)}
+#'   \item{smoker}{Smoking status (No, Yes)}
+#'   \item{multimorbidity}{Number of chronic conditions (0, 1, 2+)}
+#' }
+#' @source Simulated data generated for package testing and demonstration
+"grmtree_data"

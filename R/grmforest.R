@@ -142,6 +142,8 @@ grmforest <- function(formula, data, control = grmforest.control(), ...) {
   return(forest)
 }
 
+
+
 #' Print Method for GRM Forest
 #'
 #' @param x A `grmforest` object
@@ -161,8 +163,4 @@ print.grmforest <- function(x, ...) {
 }
 
 
-# Register S3 method if not already done
-if (!exists("print.grmforest")) {
-  registerS3method("print", "grmforest", print.grmforest)
-}
 

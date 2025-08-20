@@ -147,11 +147,6 @@ plot.grmtree <- function(x, type = c("regions", "profile", "histogram"),
   invisible(x)
 }
 
-# Register S3 method if not already done
-if (!exists("plot.grmtree")) {
-  registerS3method("plot", "grmtree", plot.grmtree)
-}
-
 # Function to create a histogram and normal curve for each terminal node with added horizontal spacing
 node_histogram_grmtree <- function(grmtree_obj, fill = "lightgray", border = "black", spacing = 0.1, ...) {
   # Extract factor scores for all nodes in the tree

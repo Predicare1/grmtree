@@ -2,7 +2,6 @@
 % Please edit documentation in R/grmtree.R
 \name{grmtree}
 \alias{grmtree}
-\alias{print.grmtree}
 \title{Fit a Graded Response Model Tree}
 \usage{
 grmtree(
@@ -11,13 +10,6 @@ grmtree(
   na.action = na.omit,
   control = grmtree.control(),
   mtry = NULL,
-  ...
-)
-
-\method{print}{grmtree}(
-  x,
-  title = "Graded Response Model Tree",
-  objfun = "negative log-likelihood",
   ...
 )
 }
@@ -35,13 +27,7 @@ matrix on the left and partitioning variables on the right (e.g.,
 \item{mtry}{Number of variables randomly sampled as candidates at each split.
 If NULL, all variables are considered.}
 
-\item{...}{Additional arguments passed to \code{print.modelparty}}
-
-\item{x}{A \code{grmtree} object}
-
-\item{title}{Title for the print output}
-
-\item{objfun}{Label for the objective function}
+\item{...}{Additional arguments passed to the fitting function.}
 }
 \value{
 An object of class \code{grmtree} inheriting from \code{modelparty} containing:
@@ -74,12 +60,13 @@ functioning (DIF) using model-based recursive partitioning.
 
 }
 \seealso{
-\code{\link{grmtree.control}} creates a control object for
-\code{grmtree}, \code{\link{plot.grmtree}} creates plot for the \code{grmtree} object,
-\code{\link{grmforest}} for GRM Forests, \code{\link{varimp}} calculates the
-variable importance for GRM Forest, \code{\link{fscores_grmtree}} for
+\code{\link{print.grmtree}} prints the results of the \code{grmtree} object,
+\code{\link{grmtree.control}} creates a control object for \code{grmtree},
+\code{\link{plot.grmtree}} creates plot for the \code{grmtree} object,
+\code{\link{grmforest}} for GRM Forests, \code{\link{varimp}} calculates
+the variable importance for GRM Forest, \code{\link{fscores_grmtree}} for
 computing factor scores, \code{\link{threshpar_grmtree}} for extracting
 threshold parameters, \code{\link{discrpar_grmtree}} for extracting
-discrimination parameters, \code{\link{itempar_grmtree}} for extracting item
-parameters
+discrimination parameters, \code{\link{itempar_grmtree}} for extracting
+item parameters
 }

@@ -141,14 +141,15 @@ grmfit <- function(y, x = NULL, start = NULL, weights = NULL, offset = NULL, ...
 #'   plot(tree)
 #' }
 #'
-#' @seealso \code{\link{grmtree.control}} creates a control object for
-#' `grmtree`, \code{\link{plot.grmtree}} creates plot for the `grmtree` object,
-#' \code{\link{grmforest}} for GRM Forests, \code{\link{varimp}} calculates the
-#' variable importance for GRM Forest, \code{\link{fscores_grmtree}} for
-#' computing factor scores, \code{\link{threshpar_grmtree}} for extracting
-#' threshold parameters, \code{\link{discrpar_grmtree}} for extracting
-#' discrimination parameters, \code{\link{itempar_grmtree}} for extracting item
-#' parameters
+#' @seealso \code{\link{print.grmtree}} prints the results of the `grmtree` object,
+#'   \code{\link{grmtree.control}} creates a control object for `grmtree`,
+#'   \code{\link{plot.grmtree}} creates plot for the `grmtree` object,
+#'   \code{\link{grmforest}} for GRM Forests, \code{\link{varimp}} calculates
+#'   the variable importance for GRM Forest, \code{\link{fscores_grmtree}} for
+#'   computing factor scores, \code{\link{threshpar_grmtree}} for extracting
+#'   threshold parameters, \code{\link{discrpar_grmtree}} for extracting
+#'   discrimination parameters, \code{\link{itempar_grmtree}} for extracting
+#'   item parameters
 #'
 #' @export
 #' @importFrom partykit mob
@@ -205,32 +206,8 @@ grmtree <- function(formula, data, na.action = na.omit,
 
   # Extend class and keep original call
   rval$info$call <- cl
-  class(rval) <- c("grmtree", class(rval))
+  class(rval) <- c("grmtree", "modelparty", "party")
 
   return(rval)
 }
-
-#' @rdname grmtree
-#' @param x A `grmtree` object
-#' @param title Title for the print output
-#' @param objfun Label for the objective function
-#' @param ... Additional arguments passed to `print.modelparty`
-#'
-#' @export
-print.grmtree <- function(x,
-                          title = "Graded Response Model Tree",
-                          objfun = "negative log-likelihood", ...) {
-  if (!inherits(x, "grmtree")) {
-    stop("'x' must be a grmtree object")
-  }
-
-  partykit::print.modelparty(x, title = title, objfun = objfun, ...)
-}
-
-# Register S3 method if not already done
-if (!exists("print.grmtree")) {
-  registerS3method("print", "grmtree", print.grmtree)
-}
-
-
 
