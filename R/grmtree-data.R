@@ -26,5 +26,11 @@
 #'   \item{smoker}{Smoking status (No, Yes)}
 #'   \item{multimorbidity}{Number of chronic conditions (0, 1, 2+)}
 #' }
+#'
+#' @examples
+#' \donttest{
+#'   data(grmtree_data, package = "grmtree")
+#'   plot(grmtree_data)
+#' }
 #' @source Simulated data generated for package testing and demonstration
 "grmtree_data"

@@ -2,19 +2,22 @@
 % Please edit documentation in R/grmforest.R
 \name{grmforest}
 \alias{grmforest}
-\title{Fit a GRM Forest}
+\title{Fit a Forest of Graded Response Model Trees for Ensemble-Based DIF Detection}
 \usage{
 grmforest(formula, data, control = grmforest.control(), ...)
 }
 \arguments{
-\item{formula}{A formula specifying the model structure (response ~
-predictors).}
+\item{formula}{A formula specifying the model structure with the response
+matrix on the left and partitioning variables on the right (e.g.,
+\code{response_matrix ~ age + gender + education + clinical_variables}).}
 
-\item{data}{A data frame containing the variables in the model.}
+\item{data}{A data frame containing the response matrix and partitioning
+variables. The response matrix should contain polytomous items coded
+as ordered factors.}
 
 \item{control}{A control object created by \code{grmforest.control()}.}
 
-\item{...}{Additional arguments passed to \code{grmtree()}.}
+\item{...}{Additional arguments passed to underlying \code{grmtree()} function.}
 }
 \value{
 An object of class \code{grmforest} containing: \item{trees}{List of
@@ -23,9 +26,34 @@ tree} \item{formula}{The model formula} \item{data}{The original dataset}
 \item{call}{The function call}
 }
 \description{
-Fits a forest of graded response model trees using either bootstrap
-aggregation (bagging) or subsampling. Each tree is fitted on a random sample
-of the data, with out-of-bag samples retained for validation.
+This function implements a forest of graded response model trees (GRM Forest)
+using bootstrap aggregation (bagging) or random subsampling to enhance the
+detection and analysis of differential item functioning (DIF) in polytomous items.
+The GRM Forest approach combines the strengths of multiple GRMTrees to provide
+more robust and stable DIF detection, particularly for complex datasets with
+high-dimensional covariates or subtle DIF patterns.
+}
+\details{
+The algorithm works by fitting multiple GRMTrees, each on a random sample of
+the original data (either through bootstrap sampling or subsampling). For each
+tree, approximately one-third of the observations are left out as out-of-bag
+(OOB) samples, which are used for internal validation and variable importance
+calculation. The ensemble approach reduces variance, minimizes overfitting,
+and provides more reliable identification of covariates associated with DIF.
+
+Key advantages of the GRM Forest approach include:
+\itemize{
+\item Enhanced stability in DIF detection across different sampling variations
+\item Robust variable importance measures that quantify the relative contribution
+of each covariate to DIF patterns
+\item Reduced false positive rates through consensus-based detection
+\item Ability to handle high-dimensional covariate spaces effectively
+\item Internal validation through out-of-bag error estimation
+}
+
+The forest implementation supports both bootstrap aggregation (where samples
+are drawn with replacement) and subsampling (without replacement), allowing
+flexibility for different data characteristics and research objectives.
 }
 \examples{
 

@@ -44,7 +44,6 @@ library(grmtree)      # For tree-based GRM DIF Test
 
 The data set used in this demonstration is a test/sample data for the package.
 
-
 ```{r, message=FALSE}
 ## Load the data
 data("grmtree_data", package = "grmtree")

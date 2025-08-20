@@ -14,4 +14,4 @@ This is the first official release of the `grmtree` package, providing methods f
 
 -   Included helper functions for working with terminal nodes and fitted models.
 
--   Vignette walkthrough provided using real-world data (not publicly available due to privacy restrictions).
+-   Vignette walkthrough provided using a sample data.

@@ -39,4 +39,10 @@ demonstration purposes within the grmtree package. The items are numbered
 1-5, representing None of the time,	A little of the time,	Some of the
 time,	Most of the time, All of the time, respectively.
 }
+\examples{
+\donttest{
+  data(grmtree_data, package = "grmtree")
+  plot(grmtree_data)
+}
+}
 \keyword{datasets}
