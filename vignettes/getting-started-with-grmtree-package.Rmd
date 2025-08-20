@@ -32,8 +32,7 @@ The `grmtree` package implements recursive partitioning for Graded Response Mode
 To implement the tree-based GRM (GRMTree), you will install the following packages if not previously installed.
 ```{r, eval=F}
 ## Install packages from CRAN repository
-install.packages(c("dplyr", "grmtree", "mirt",
-                   "table1", "psych"))
+install.packages(c("dplyr", "grmtree", "mirt", "psych"))
 ```
 
 Once installed, load the packages as follows:

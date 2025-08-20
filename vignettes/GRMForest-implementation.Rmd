@@ -31,14 +31,13 @@ See the vignette on getting started with grmtree package for a more detailed wal
 To implement the tree-based GRM (GRMTree), you will install the following packages if not previously installed.
 ```{r, eval=F}
 ## Install packages from CRAN repository
-install.packages(c("tidyverse", "grmtree", "mirt"))
+install.packages(c("dplyr", "grmtree"))
 ```
 
 Once installed, load the packages as follows:
 ```{r, message=FALSE, warning=FALSE}
 library(dplyr)        # For data manipulation
 library(grmtree)      # For tree-based GRM DIF Test
-library(mirt)         # For traditional GRM
 ```
 
 # Import and prepare the data

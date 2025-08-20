@@ -34,7 +34,6 @@ Suggests:
   rmarkdown,
   psychotools,
   psychotree,
-  table1,
   psych
 Config/testthat/edition: 3
 Encoding: UTF-8
