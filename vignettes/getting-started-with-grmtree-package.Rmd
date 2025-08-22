@@ -170,7 +170,9 @@ Based on multiple fit indices including the Tucker–Lewis index (TLI) and Compa
 
 Now, let's create the GRNTree using covariates to test for DIF. To implement the GRMTree, it follows this four-step process.
 
-![Tree-based GRM implementation in R](GRMTree.png)
+```{r grmtree-process, echo=FALSE, out.width="75%", fig.align='center', fig.cap="GRMTree implementation process showing the four-step recursive partitioning approach for detecting differential item functioning"}
+knitr::include_graphics("GRMTree.png")
+```
 
 Before we proceed, let's put the variables in their proper formats:
 
