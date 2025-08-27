@@ -112,21 +112,6 @@ grmfit <- function(y, x = NULL, start = NULL, weights = NULL, offset = NULL, ...
 #' identify heterogeneous subgroups in the population where item parameters
 #' (discrimination and thresholds) vary systematically across covariates.
 #'
-#' The algorithm works by first estimating a global GRM for the entire sample,
-#' then recursively testing for parameter instability with respect to available
-#' covariates. When significant DIF is detected, the sample is partitioned into
-#' homogeneous subgroups, each with their own set of item parameters. This
-#' approach allows for the identification of complex interaction effects and
-#' provides interpretable tree structures that visualize how item functioning
-#' varies across different patient subgroups.
-#'
-#' GRMTree is particularly useful in health outcomes research where
-#' patient-reported outcome measures may function differently across diverse
-#' demographic, clinical, or socioeconomic subgroups. The resulting tree
-#' diagrams facilitate the development of personalized assessment strategies and
-#' can inform targeted interventions by identifying specific patient
-#' characteristics associated with differential item interpretation.
-#'
 #' @param formula A formula specifying the model structure with the response
 #'   matrix on the left and partitioning variables on the right (e.g.,
 #'   `response_matrix ~ age + gender`).
@@ -142,7 +127,22 @@ grmfit <- function(y, x = NULL, start = NULL, weights = NULL, offset = NULL, ...
 #'
 #' @details
 #'
-#' # Conventional Graded Response Model (GRM)
+#' The algorithm works by first estimating a global GRM for the entire sample,
+#' then recursively testing for parameter instability with respect to available
+#' covariates. When significant DIF is detected, the sample is partitioned into
+#' homogeneous subgroups, each with their own set of item parameters. This
+#' approach allows for the identification of complex interaction effects and
+#' provides interpretable tree structures that visualize how item functioning
+#' varies across different patient subgroups.
+#'
+#' GRMTree is particularly useful in health outcomes research where
+#' patient-reported outcome measures may function differently across diverse
+#' demographic, clinical, or socioeconomic subgroups. The resulting tree
+#' diagrams facilitate the development of personalized assessment strategies and
+#' can inform targeted interventions by identifying specific patient
+#' characteristics associated with differential item interpretation.
+#'
+#' ## Conventional Graded Response Model (GRM)
 #'
 #' Let \eqn{Y_{im}} denote the response of the \eqn{i^{th}} (\eqn{i=1,\ldots,N})
 #' individual to the \eqn{m^{th}} (\eqn{m = 1,2,\ldots,M}) item. The graded
@@ -165,7 +165,7 @@ grmfit <- function(y, x = NULL, start = NULL, weights = NULL, offset = NULL, ...
 #' item discrimination is \eqn{a_m = \lambda_m} and item difficulty is
 #' \eqn{b_{mj} = \tau_{mj} / \lambda_m}.
 #'
-#' # Graded Response Model Tree (GRMTree) Implementation
+#' ## Graded Response Model Tree (GRMTree) Implementation
 #'
 #' The GRMTree is a hybrid model that integrates the GRM with model-based
 #' recursive partitioning to detect and account for differential item
@@ -222,7 +222,7 @@ grmfit <- function(y, x = NULL, start = NULL, weights = NULL, offset = NULL, ...
 #' 2. **Minimum Node Size:** The subsample size falls below a prespecified
 #' minimum (e.g., \eqn{n < 10 \times} the number of item parameters).
 #'
-#' # Formal GRMTree Structure
+#' ## Formal GRMTree Structure
 #'
 #' The final GRMTree provides a piecewise GRM where each terminal node
 #' represents a subgroup with homogeneous item parameters, explicitly modeling

@@ -56,8 +56,8 @@ demographic, clinical, or socioeconomic subgroups. The resulting tree
 diagrams facilitate the development of personalized assessment strategies and
 can inform targeted interventions by identifying specific patient
 characteristics associated with differential item interpretation.
-}
-\section{Conventional Graded Response Model (GRM)}{
+\subsection{Conventional Graded Response Model (GRM)}{
+
 Let \eqn{Y_{im}} denote the response of the \eqn{i^{th}} (\eqn{i=1,\ldots,N})
 individual to the \eqn{m^{th}} (\eqn{m = 1,2,\ldots,M}) item. The graded
 response model is described as:
@@ -82,7 +82,8 @@ item discrimination is \eqn{a_m = \lambda_m} and item difficulty is
 \eqn{b_{mj} = \tau_{mj} / \lambda_m}.
 }
 
-\section{Graded Response Model Tree (GRMTree) Implementation}{
+\subsection{Graded Response Model Tree (GRMTree) Implementation}{
+
 The GRMTree is a hybrid model that integrates the GRM with model-based
 recursive partitioning to detect and account for differential item
 functioning (DIF) across subgroups defined by covariates. The algorithm
@@ -141,7 +142,8 @@ minimum (e.g., \eqn{n < 10 \times} the number of item parameters).
 }
 }
 
-\section{Formal GRMTree Structure}{
+\subsection{Formal GRMTree Structure}{
+
 The final GRMTree provides a piecewise GRM where each terminal node
 represents a subgroup with homogeneous item parameters, explicitly modeling
 the detected DIF structure within the data. The resulting GRMTree model can
@@ -169,7 +171,7 @@ and modeled explicitly through the tree structure, where item parameters can
 vary across subgroups defined by covariates, while maintaining the
 conditional distribution of the latent trait within each subgroup.
 }
-
+}
 \examples{
 \donttest{
   library(grmtree)
