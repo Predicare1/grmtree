@@ -48,14 +48,8 @@ install.packages("devtools")
 # Install the grmtree
 devtools::install_github("Predicare1/grmtree")
 
-# Install with vignettes (takes longer but includes documentation)
+# Install with vignettes (takes longer but includes vignettes)
 devtools::install_github("Predicare1/grmtree", build_vignettes = TRUE)
-
-# Load the package
-library(grmtree)
-
-# View vignettes (interactive tutorials)
-browseVignettes("grmtree")
 ```
 
 ## Quick Start
@@ -100,7 +94,7 @@ discrpar_grmtree(tree) # Discrimination parameters
 
 ## Vignettes
 
-Detailed tutorials are available:
+Detailed interactive tutorials are available:
 
 ```{r}
 browseVignettes("grmtree")
