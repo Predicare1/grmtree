@@ -68,7 +68,7 @@ grmfit <- function(y, x = NULL, start = NULL, weights = NULL, offset = NULL, ...
 
   # Extract coefficients with error handling
   coefs <- tryCatch(
-    mirt::coef(fit),
+    mirt::coef(fit, IRTpars=T, simplify=TRUE),
     error = function(e) {
       stop("Could not extract coefficients: ", e$message)
     }

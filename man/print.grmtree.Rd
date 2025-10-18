@@ -7,7 +7,7 @@
 \method{print}{grmtree}(
   x,
   title = "Graded Response Model Tree",
-  objfun = "negative log-lelihood",
+  objfun = "negative log-likelihood",
   ...
 )
 }

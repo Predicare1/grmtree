@@ -54,27 +54,16 @@
 
 print.grmtree <- function(x,
                           title = "Graded Response Model Tree",
-                          objfun = "negative log-lelihood", ...) {
+                          objfun = "negative log-likelihood",
+                          ...) {
 
-  # Input validation
+  # Only validate the object class
   if (!inherits(x, "grmtree")) {
     stop("'x' must be a grmtree object")
   }
 
-  if (!is.character(title) || length(title) != 1) {
-    stop("'title' must be a single character string")
-  }
-
-  if (!is.character(objfun) || length(objfun) != 1) {
-    stop("'objfun' must be a single character string")
-  }
-
-  # Call partykit's print method with custom parameters
+  # Call print.modelparty
   partykit::print.modelparty(x, title = title, objfun = objfun, ...)
 
-  # Invisibly return the tree object for piping
   invisible(x)
 }
-
-
-

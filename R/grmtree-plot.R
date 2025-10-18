@@ -243,8 +243,8 @@ node_regionplot_grmtree <- function(mobobj, names = FALSE, abbreviate = TRUE, ty
       model <- partykit::nodeapply(object, ids = n, FUN = function(nd) nd$info$object)[[1]]
 
       # Extract threshold coefficients
-      coef_model <- mirt::coef(model, simplify = TRUE)
-      thresh <- coef_model$items[, grep("d", colnames(coef_model$items))]
+      coef_model <- mirt::coef(model, IRTpars=T, simplify=TRUE)
+      thresh <- coef_model$items[, grep("b", colnames(coef_model$items))]
 
       # Convert to a list of vectors (one per item)
       thresh_list <- split(thresh, seq(nrow(thresh)))
@@ -390,16 +390,16 @@ node_profileplot_grmtree <- function(mobobj, what = c("item", "threshold", "disc
   ## Get all coefficients (item, thresholds, or discrimination)
   cf <- lapply(node, function(n) {
     model <- partykit::nodeapply(mobobj, ids = n, FUN = function(nd) nd$info$object)[[1]]
-    coef_model <- mirt::coef(model, simplify = TRUE)
+    coef_model <- mirt::coef(model, IRTpars=T, simplify=TRUE)
     if (what == "threshold") {
-      coef_model$items[, grep("d", colnames(coef_model$items))]  # Thresholds
+      coef_model$items[, grep("b", colnames(coef_model$items))]  # Thresholds
     } else if (what == "discrimination") {
-      coef_model$items[, "a1"]  # Discrimination (use "a1" instead of "a")
+      coef_model$items[, "a"]  # Discrimination (use "a" instead of "a1")
     } else if (what == "item") {
       # Compute item parameters (discrimination and average thresholds)
-      thresholds <- coef_model$items[, grep("d", colnames(coef_model$items))]
+      thresholds <- coef_model$items[, grep("b", colnames(coef_model$items))]
       avg_thresholds <- rowMeans(thresholds, na.rm = TRUE)
-      item_params <- cbind(coef_model$items[, "a1"], avg_thresholds)  # Discrimination and average thresholds
+      item_params <- cbind(coef_model$items[, "a"], avg_thresholds)  # Discrimination and average thresholds
       colnames(item_params) <- c("Discrimination", "AvgThreshold")
       item_params
     }

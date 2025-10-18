@@ -74,20 +74,20 @@ itempar_grmtree <- function(object, node = NULL, ...) {
 
     # Get coefficients
     coef_model <- tryCatch(
-      mirt::coef(model, simplify = TRUE),
+      mirt::coef(model, IRTpars=T, simplify=TRUE),
       error = function(e) {
         stop("Failed to extract coefficients from node ", n, ": ", e$message)
       }
     )
 
     # Extract discrimination parameters
-    if (!"a1" %in% colnames(coef_model$items)) {
+    if (!"a" %in% colnames(coef_model$items)) {
       stop("No discrimination parameters found in node ", n)
     }
-    discr <- coef_model$items[, "a1"]
+    discr <- coef_model$items[, "a"]
 
     # Extract threshold parameters
-    thresh_cols <- grep("^d", colnames(coef_model$items))
+    thresh_cols <- grep("^b", colnames(coef_model$items))
     if (length(thresh_cols) == 0) {
       stop("No threshold parameters found in node ", n)
     }

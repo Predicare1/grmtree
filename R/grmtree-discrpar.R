@@ -74,25 +74,25 @@ discrpar_grmtree <- function(object, node = NULL, ...) {
 
     # Get coefficients
     coef_model <- tryCatch(
-      mirt::coef(model, simplify = TRUE),
+      mirt::coef(model, IRTpars=T, simplify=TRUE),
       error = function(e) {
         stop("Failed to extract coefficients from node ", n, ": ", e$message)
       }
     )
 
     # Extract discrimination parameters
-    if (!"a1" %in% colnames(coef_model$items)) {
+    if (!"a" %in% colnames(coef_model$items)) {
       stop("No discrimination parameters found in node ", n)
     }
 
-    discr <- coef_model$items[, "a1", drop = FALSE]
+    discr <- coef_model$items[, "a", drop = FALSE]
     items <- rownames(coef_model$items)
 
     # Create output data frame
     discr_df <- data.frame(
       Node = n,
       Item = items,
-      Discrimination = discr[, "a1"],
+      Discrimination = discr[, "a"],
       row.names = NULL
     )
 

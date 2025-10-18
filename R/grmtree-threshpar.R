@@ -75,14 +75,14 @@ threshpar_grmtree <- function(object, node = NULL, ...) {
 
     # Get coefficients
     coef_model <- tryCatch(
-      mirt::coef(model, simplify = TRUE),
+      mirt::coef(model, IRTpars=T, simplify = TRUE),
       error = function(e) {
         stop("Failed to extract coefficients from node ", n, ": ", e$message)
       }
     )
 
     # Extract thresholds
-    thresh_cols <- grep("^d", colnames(coef_model$items))
+    thresh_cols <- grep("^b", colnames(coef_model$items))
     if (length(thresh_cols) == 0) {
       stop("No threshold parameters found in node ", n)
     }
@@ -121,8 +121,8 @@ grm_threshpar <- function(object, node = NULL, ...) {
   thresholds <- tryCatch(
     do.call("rbind", partykit::nodeapply(object, ids = node, FUN = function(n) {
       model <- partykit::info_node(n)$object
-      coef_model <- mirt::coef(model, simplify = TRUE)
-      coef_model$items[, grep("^d", colnames(coef_model$items)), drop = FALSE]
+      coef_model <- mirt::coef(model, IRTpars=T, simplify=TRUE)
+      coef_model$items[, grep("^b", colnames(coef_model$items)), drop = FALSE]
     })),
     error = function(e) {
       stop("Failed to extract thresholds: ", e$message)
