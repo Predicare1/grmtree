@@ -48,6 +48,7 @@
 #' @seealso \code{\link[partykit]{print.modelparty}} for the underlying printing
 #'   infrastructure, \code{\link{grmtree}} for creating GRM tree objects
 #'
+#'
 #' @method print grmtree
 #' @export
 
@@ -57,13 +58,33 @@ print.grmtree <- function(x,
                           objfun = "negative log-likelihood",
                           ...) {
 
-  # Only validate the object class
   if (!inherits(x, "grmtree")) {
     stop("'x' must be a grmtree object")
   }
 
-  # Call print.modelparty
+  # Explicitly call partykit's print method
   partykit::print.modelparty(x, title = title, objfun = objfun, ...)
 
   invisible(x)
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
