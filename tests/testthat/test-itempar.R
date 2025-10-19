@@ -93,7 +93,7 @@ test_that("item parameters are consistent with thresholds", {
 
     # Cross-check with threshpar output
     thresh_sub <- thresholds[thresholds$Node == node & thresholds$Item == item, ]
-    thresh_values <- unlist(thresh_sub[, grep("^d", names(thresh_sub))])
+    thresh_values <- unlist(thresh_sub[, grep("^b", names(thresh_sub))])
     expect_equal(mean(thresh_values), items$AvgThreshold[i], tolerance = 1e-6)
   }
 })
