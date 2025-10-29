@@ -30,7 +30,7 @@
 #' @examples
 #' \donttest{
 #'   data(grmtree_data, package = "grmtree")
-#'   plot(grmtree_data)
+#'   glimpse(grmtree_data)
 #' }
 #' @source Simulated data generated for package testing and demonstration
 "grmtree_data"
