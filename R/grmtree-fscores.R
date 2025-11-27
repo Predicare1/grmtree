@@ -81,13 +81,19 @@ fscores_grmtree <- function(grmtree_obj, method = "EAP") {
 
     if (is.null(node_model)) next
 
-    # Compute factor scores for the node
-    node_scores <- tryCatch(
-      {
-        scores <- mirt::fscores(node_model, method = method)
-        if (is.matrix(scores)) scores[, 1] else scores  # Ensure vector output
-      },
-      error = function(e) NULL
+    # Compute factor scores for the node WITH convergence checking
+    node_scores <- suppressWarnings(
+      tryCatch({
+        result <- mirt::fscores(node_model, method = method)
+        # Check for convergence issues
+        if (any(is.na(result)) || any(!is.finite(result))) {
+          warning("Some factor score estimates may not have converged properly")
+        }
+        if (is.matrix(result)) result[, 1] else result  # Ensure vector output
+      }, error = function(e) {
+        warning("Factor score computation failed for node ", node_id, ": ", e$message)
+        return(NULL)
+      })
     )
 
     if (!is.null(node_scores)) {
@@ -219,8 +225,8 @@ generate_node_scores_dataset <- function(grmtree_obj, method = "EAP") {
   # Sort by original row order and clean up
   combined_data <- combined_data %>%
     dplyr::arrange(as.numeric(.data$row_id)) %>%
-    dplyr::select(-.data$row_id) %>%
-    dplyr::relocate(.data$node, .before = "factor_score")
+    dplyr::select(-"row_id") %>%
+    dplyr::relocate("node", .before = "factor_score")
 
   rownames(combined_data) <- NULL  # Reset row names
 

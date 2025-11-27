@@ -145,14 +145,9 @@ residuals(mos_grm, type = "Q3")
 M2(mos_grm, type = "C2")
 
 ## Infit and outfit statistics
-mirt::itemfit(mos_grm, c('S_X2', 'infit'), method = 'ML')
+mirt::itemfit(mos_grm, c('S_X2', 'infit'), method = 'EAP')
 
-## Could also use method = 'EAP'
-
-## Person fit statistics
-personfit_mirt <- mirt::personfit(mos_grm, method = 'ML')
-summary(personfit_mirt$infit)
-summary(personfit_mirt$outfit)
+## Could also use method = 'ML'
 ```
 
 ## Visualization: Visualize the results for all the items
@@ -207,19 +202,11 @@ mos_grmtree <- grmtree(resp ~ sex + age + bmi + Education + depressed +
                        residency + job + multimorbidity + smoker,  
                        data = resp.data,
                        control = grm_control)
-
-## Another way implement the model 
-## with the control parameters in the function (Bonferroni correction)
-mos_grmtree_bon <- grmtree(resp ~ sex + age + bmi + Education + depressed +
-                       residency + job + multimorbidity + smoker,  
-                       data = resp.data,
-                       control = grmtree.control(minbucket = 350,
-                                                 p_adjust = "bonferroni"))
 ```
 
 **Note:** Unlike previous tree-based item response theory models, currently, the `grmtree` package implemented other multiple adjustments methods apart from the Bonferroni correction. The implemented multiple adjustments methods include, "bonferroni" (Bonferroni), "holm" (Holm-Bonferroni), "BH" (Benjamini-Hochberg), "BY" (Benjamini-Yekutieli), "hochberg" (Hochberg), and "hommel" (Hommel). As it is known, the Bonferronni correction can be overly conservative, and implementing other methods like Benjamini-Hochberg (BH) and Holm-Bonferroni is a valuable addition to this package. 
 
-See the `grmtree.control` for more information on other control arguments. Also see below an example of using other multiple comparison methods.
+See the `grmtree.control` for more information on other control arguments. Also see below an example of using other multiple comparison methods with the control parameters in the function.
 
 ```{r, eval=FALSE}
 ## Bonferroni correction

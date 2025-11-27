@@ -2,7 +2,7 @@
 
 <!-- badges: start -->
 
-[![CRAN status](https://www.r-pkg.org/badges/version/grmtree)](https://CRAN.R-project.org/package=grmtree) [![R-CMD-check](https://github.com/Predicare1/grmtree/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/Predicare1/grmtree/actions/workflows/R-CMD-check.yaml) [![License: GPL-3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0) [![Code size](https://img.shields.io/github/languages/code-size/Predicare1/grmtree.svg)](https://github.com/Predicare1/grmtree)
+[[![R-CMD-check](https://github.com/Predicare1/grmtree/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/Predicare1/grmtree/actions/workflows/R-CMD-check.yaml) [![License: GPL-3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0.html) [![Code size](https://img.shields.io/github/languages/code-size/Predicare1/grmtree.svg)](https://github.com/Predicare1/grmtree)
 
 <!-- badges: end -->
 
@@ -130,7 +130,7 @@ plot(forest$trees[[1]]) # First tree
 
 -   Strobl, C., Kopf, J., & Zeileis, A. (2015). Rasch trees: A new method for detecting differential item functioning in the Rasch model. Psychometrika, 80(2), 289-316.
 
--   Komboz, B., Strobl, C., & Zeileis, A. (2018). Tree-based global model tests for polytomous Rasch nodels. Educational and psychological measurement, 78(1), 128–166. <https://doi.org/10.1177/0013164416664394>.
+-   Komboz, B., Strobl, C., & Zeileis, A. (2018). Tree-based global model tests for polytomous Rasch models. Educational and psychological measurement, 78(1), 128–166. doi.org/10.1177/0013164416664394.
 
 -   Arimoro, O. I., Lix, L. M., Patten, S. B., Sawatzky, R., Sebille, V., Liu, J., Wiebe, S., Josephson, C. B., & Sajobi, T. T. (2025). Tree-based latent variable model for assessing differential item functioning in patient-reported outcome measures: a simulation study. Quality of life research : an international journal of quality of life aspects of treatment, care and rehabilitation, 10.1007/s11136-025-04018-6. Advance online publication. <https://doi.org/10.1007/s11136-025-04018-6>.
 

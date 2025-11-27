@@ -82,7 +82,7 @@ grm_control <- grmtree.control(
 
 ## Define the forest control parameters
 forest_control <- grmforest.control(
-  n_tree = 20, # Number of trees
+  n_tree = 3, # Number of trees (Reduced for vignette build time)
   sampling = "bootstrap",  # Bootstrap method; resampling also available
   sample_fraction = 0.632,
   mtry = sqrt(9),  # Usually the square root of the number of covariates
@@ -108,13 +108,13 @@ summary(mos_forest)
 print(mos_forest)
 
 ## Plot a tree in the forest
-plot(mos_forest$trees[[3]])
+plot(mos_forest$trees[[1]])
 ```
 
 # Variable Importance
 
 ## Compute the variable importance of each covariate
-```{r}
+```{r, eval=FALSE}
 ## Calculate the variable importance
 importance <- varimp(mos_forest, seed = 123, verbose = T)
 
@@ -122,10 +122,18 @@ importance <- varimp(mos_forest, seed = 123, verbose = T)
 print(importance)
 ```
 
+Example output:
+```
+           age         smoker            bmi multimorbidity            sex 
+     403.07554      220.37908       39.02621       37.00120       32.06389 
+     Education      residency      depressed            job 
+       0.00000        0.00000        0.00000        0.00000 
+```
+
 ## Plot the variable importance of each variable 
 
 Here `plot.varimp` creates a bar plot of variable importance scores with options for both ggplot2 and base R graphics.
-```{r}
+```{r, eval = FALSE}
 ## Plot the variable importance scores (ggplot is the default)
 plot(importance)
 

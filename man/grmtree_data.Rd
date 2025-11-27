@@ -41,8 +41,11 @@ time,	Most of the time, All of the time, respectively.
 }
 \examples{
 \donttest{
+  library(dplyr)
+
+  # Load and take a glimpse at the data
   data(grmtree_data, package = "grmtree")
-  plot(grmtree_data)
+  glimpse(grmtree_data)
 }
 }
 \keyword{datasets}

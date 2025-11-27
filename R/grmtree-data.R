@@ -29,6 +29,9 @@
 #'
 #' @examples
 #' \donttest{
+#'   library(dplyr)
+#'
+#'   # Load and take a glimpse at the data
 #'   data(grmtree_data, package = "grmtree")
 #'   glimpse(grmtree_data)
 #' }
