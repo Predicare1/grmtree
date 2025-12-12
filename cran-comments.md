@@ -2,6 +2,20 @@
 
 This is a resubmission. In this version I have:
 
+### Bug Fixes
+
+* Fixed `grmfit()` function by removing problematic `tryCatch` warning handler that caused "no 'restart' 'muffleWarning' found" errors during tree fitting
+
+* Fixed test failures in `test-grmforest.R` and `test-varimp.R` by updating tests to not expect warnings when tree fitting succeeds
+
+### New Features
+
+* Updated the implementation of multiple comparison adjustment methods (Holm, Benjamini-Hochberg, Benjamini-Yekutieli, Hochberg, Hommel) in `grmtree.control()` using a post-hoc pruning approach
+
+* Added internal helper functions (`.adjust_and_prune_tree()`, `.prune_single_node()`, `.get_parent_path()`) for p-value adjustment and tree pruning
+
+### Previous Fixes (from prior submission)
+
 * Fixed test failure in `test-fscores.R` by properly handling convergence warnings from `mirt::fscores()` using `suppressWarnings()`
 
 * Fixed URL timeout issue by updating GNU license URL in README.md from `https://www.gnu.org/licenses/gpl-3.0` to `https://www.gnu.org/licenses/gpl-3.0.html`
