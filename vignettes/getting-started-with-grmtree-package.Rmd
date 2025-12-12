@@ -152,7 +152,7 @@ mirt::itemfit(mos_grm, c('S_X2', 'infit'), method = 'EAP')
 
 ## Visualization: Visualize the results for all the items
 
-```{r}
+```{r, eval = FALSE}
 ## Plot the category response curves
 plot(mos_grm, type = 'trace')
 
@@ -257,8 +257,8 @@ You may also rename a covariate in the plot. Let's assume we want to rename the 
 ## Return the names of the covariates to know the position of age
 names(mos_grmtree$data)
 
-## Rename the age to Age
-names(mos_grmtree$data)[3] <- "Age"
+## Rename the age to Age (Uncomment the code below and change to the correct name)
+#names(mos_grmtree$data)[3] <- "Age"
 
 ## Create the regions plot (by default)
 plot(mos_grmtree)

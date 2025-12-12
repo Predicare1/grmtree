@@ -26,7 +26,8 @@ Imports:
   dplyr,
   ggplot2,
   rlang,
-  magrittr
+  magrittr,
+  strucchange
 Suggests:
   hlt,
   testthat (>= 3.0.0),

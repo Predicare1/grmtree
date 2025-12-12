@@ -23,83 +23,36 @@
 grmfit <- function(y, x = NULL, start = NULL, weights = NULL, offset = NULL, ...,
                    estfun = FALSE, object = FALSE) {
 
+
+
   # Validate input response matrix
   if (!is.matrix(y)) {
-    stop("Response variable 'y' must be a matrix. Found: ", class(y))
+    y <- as.matrix(y)
   }
 
   if (ncol(y) < 2) {
     stop("Response matrix must have at least 2 columns (items). Found: ", ncol(y))
   }
 
-  if (nrow(y) < 20) {
-    warning("Small sample size (n < 20) may lead to unstable parameter estimates")
-  }
+  # Fit GRM model
+  fit <- mirt::mirt(y, model = 1, itemtype = 'graded', SE = TRUE, verbose = FALSE, ...)
 
-  # Warn about unused arguments
-  if (!(is.null(x) || NCOL(x) == 0L)) {
-    warning("Predictor matrix 'x' is not used in GRM fitting")
-  }
+  # Extract coefficients
+  coefs <- mirt::coef(fit, IRTpars = TRUE, simplify = TRUE)
 
-  if (!is.null(offset)) {
-    warning("Offset term is not used in GRM fitting")
-  }
+  # Validate coefficients were returned
 
-  # Fit GRM model with error handling
-  fit <- tryCatch(
-    mirt::mirt(y, model = 1, itemtype = 'graded',
-               SE = TRUE, verbose = FALSE, ...),
-    error = function(e) {
-      stop("GRM model fitting failed: ", e$message)
-    },
-    warning = function(w) {
-      warning("GRM fitting warning: ", w$message)
-      invokeRestart("muffleWarning")
-    }
-  )
-
-  # Extract log-likelihood with error handling
-  loglik <- tryCatch(
-    mirt::logLik(fit),
-    error = function(e) {
-      stop("Could not extract log-likelihood: ", e$message)
-    }
-  )
-
-  # Extract coefficients with error handling
-  coefs <- tryCatch(
-    mirt::coef(fit, IRTpars=T, simplify=TRUE),
-    error = function(e) {
-      stop("Could not extract coefficients: ", e$message)
-    }
-  )
-
-  # Prepare return value
-  rval <- list(
-    coefficients = coefs,
-    objfun = -as.numeric(loglik),  # Convert to negative log-likelihood
-    estfun = if (estfun) {
-      tryCatch(
-        mirt::estfun.AllModelClass(fit),
-        error = function(e) {
-          warning("Could not compute estimating functions: ", e$message)
-          NULL
-        }
-      )
-    } else NULL,
-    object = if (object) fit else NULL
-  )
-
-  # Validate return structure
-  if (is.null(rval$coefficients)) {
+  if (is.null(coefs)) {
     stop("Model fitting failed - no coefficients returned")
   }
 
-  if (!is.finite(rval$objfun)) {
-    warning("Non-finite log-likelihood value returned")
-  }
-
-  return(rval)
+  # Return list
+  list(
+    coefficients = coefs,
+    objfun = -as.numeric(mirt::logLik(fit)),
+    estfun = if (estfun) mirt::estfun.AllModelClass(fit) else NULL,
+    object = if (object) fit else NULL
+  )
 }
 
 
@@ -311,8 +264,9 @@ grmfit <- function(y, x = NULL, start = NULL, weights = NULL, offset = NULL, ...
 #'   \code{\link{itempar_grmtree}} for extracting item parameters
 #'
 #' @export
-#' @importFrom partykit mob
-#' @importFrom stats model.frame model.response na.omit
+#' @importFrom partykit mob nodeids nodeprune
+#' @importFrom strucchange sctest
+#' @importFrom stats model.frame model.response na.omit p.adjust
 grmtree <- function(formula, data, na.action = na.omit,
                     control = grmtree.control(), mtry = NULL, ...) {
 
@@ -320,7 +274,6 @@ grmtree <- function(formula, data, na.action = na.omit,
   if (!inherits(formula, "formula")) {
     stop("'formula' must be a valid formula object")
   }
-
   if (!is.data.frame(data)) {
     stop("'data' must be a data.frame")
   }
@@ -329,12 +282,7 @@ grmtree <- function(formula, data, na.action = na.omit,
   cl <- match.call(expand.dots = TRUE)
 
   # Parse the formula and handle missing values
-  mf <- tryCatch(
-    model.frame(formula, data = data, na.action = na.action),
-    error = function(e) {
-      stop("Error in model.frame: ", e$message)
-    }
-  )
+  mf <- model.frame(formula, data = data, na.action = na.action)
 
   # Extract response matrix
   y <- model.response(mf)
@@ -342,31 +290,48 @@ grmtree <- function(formula, data, na.action = na.omit,
     stop("Response variable must be a matrix. Did you provide a multi-item response matrix?")
   }
 
-  # Set custom fluctuation test if p-value adjustment is specified
-  if (!is.null(control$p_adjust) && control$p_adjust != "none") {
-    control$ftest <- grm_fluc_test
+  # Get p_adjust method from control
+  p_adjust <- if (!is.null(control$p_adjust)) control$p_adjust else "none"
+  alpha <- control$alpha
+  minbucket <- control$minsize  # mob_control stores minbucket as minsize
+
+  # For BH, Holm, BY, hochberg, hommel - use post-hoc pruning approach
+  if (p_adjust %in% c("holm", "BH", "BY", "hochberg", "hommel")) {
+
+    # Build full tree with alpha = 1.0 (always split when possible)
+    ctrl_full <- partykit::mob_control(
+      minbucket = minbucket,
+      bonferroni = FALSE,
+      alpha = 1.0,
+      ytype = "matrix"
+    )
+
+    rval <- partykit::mob(
+      formula = formula,
+      data = data,
+      fit = grmfit,
+      control = ctrl_full,
+      na.action = na.action
+    )
+
+    # Apply p-value adjustment and prune
+    rval <- .adjust_and_prune_tree(rval, p_adjust, alpha)
+
+  } else {
+    # For "none" and "bonferroni" - use mob directly
+    rval <- partykit::mob(
+      formula = formula,
+      data = data,
+      fit = grmfit,
+      control = control,
+      na.action = na.action
+    )
   }
 
-  # Call mob with the custom control
-  m <- match.call(expand.dots = FALSE)
-  m$fit <- grmfit
-  m$control <- control
-  m$formula <- formula
-  m$data <- data
-  if ("..." %in% names(m)) m[["..."]] <- NULL
-  m[[1L]] <- as.call(quote(partykit::mob))
-
-  rval <- tryCatch(
-    eval(m, parent.frame()),
-    error = function(e) {
-      stop("Error in tree fitting: ", e$message)
-    }
-  )
-
-  # Extend class and keep original call
+  # Store p_adjust method and original call
+  rval$info$p_adjust <- p_adjust
   rval$info$call <- cl
   class(rval) <- c("grmtree", "modelparty", "party")
 
   return(rval)
 }
-
