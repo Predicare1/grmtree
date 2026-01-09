@@ -63,7 +63,7 @@ with an overlaid normal curve.
 }
 }
 \examples{
-\dontrun{
+\donttest{
 
 library(grmtree)
 library(hlt)

@@ -1,6 +1,19 @@
 ## Resubmission
 
 This is a resubmission. In this version I have:
+ 
+* Added methodological references with DOI to the Description field in DESCRIPTION
+
+* Replaced all `\dontrun{}` with `\donttest{}` in R documentation examples as requested
+
+* Fixed vignette timeout by setting `eval = FALSE` for all computationally intensive 
+  code chunks in the GRMForest vignette (grmforest fitting, varimp calculations, plotting)
+
+* Reduced example complexity in varimp() documentation (n_tree from 30 to 5)
+
+### Previous Fixes (from prior submission)
+
+This is a resubmission. In this version I have:
 
 ### Bug Fixes
 
@@ -47,7 +60,13 @@ This is a resubmission. In this version I have:
 
 * local Windows 11, R 4.5.1
 * GitHub Actions (ubuntu-latest, windows-latest, macos-latest)
+* win-builder (R-devel)
 
 ## Notes on check time
 
-The package vignettes includes computationally intensive functions for IRT model fitting and the GRMForest. Vignette examples have been optimized to reduce CRAN check time while still demonstrating package functionality.
+The package vignettes includes computationally intensive functions for IRT model 
+fitting and the GRMForest. Vignette examples have been optimized to 
+reduce CRAN check time while still demonstrating package functionality. All vignette 
+examples with intensive computations now use `eval = FALSE` and display pre-computed 
+example output.
+

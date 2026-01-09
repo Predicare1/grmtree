@@ -14,7 +14,7 @@
 #'   with a warning.
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #'   library(grmtree)
 #'   library(hlt)
 #'   data("asti", package = "hlt")
@@ -128,7 +128,7 @@ fscores_grmtree <- function(grmtree_obj, method = "EAP") {
 #'   Rows are in original order with sequential row names.
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #'   library(grmtree)
 #'   library(hlt)
 #'   data("asti", package = "hlt")

@@ -94,7 +94,7 @@ forest_control <- grmforest.control(
 
 ## Grow the GRM Forest
 
-```{r}
+```{r, eval=FALSE}
 ## Fit the GRM forest
 mos_forest <- grmforest(
   resp ~ sex + age + bmi + Education + 
@@ -133,7 +133,7 @@ Example output:
 ## Plot the variable importance of each variable 
 
 Here `plot.varimp` creates a bar plot of variable importance scores with options for both ggplot2 and base R graphics.
-```{r, eval = FALSE}
+```{r, eval=FALSE}
 ## Plot the variable importance scores (ggplot is the default)
 plot(importance)
 

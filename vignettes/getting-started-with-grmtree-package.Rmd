@@ -71,7 +71,9 @@ response_data <- grmtree_data %>%
 
 ## Create response as outcomes
 response_data$resp <- data.matrix(response_data[, 1:8])
+```
 
+```{r, eval=FALSE}
 ## Calculate the polychoric correlation of items 
 polycorr_mos <- polychoric(response_data$resp, global=FALSE)$rho
 
@@ -87,12 +89,11 @@ mos_ratio
 
 cat("The ratio of the first-to-second eigen value is", mos_ratio,
     "which is >4 suggesting that the unidimensionality assumption is satisfied", "\n")
-
 ```
 
 Now, let's create the screen plot.
 
-```{r}
+```{r, eval=FALSE}
 ## Scree plot of eigen values
 plot(1:length(polycorr_eigen_mos), polycorr_eigen_mos, 
      type = "b", pch = 20, xlab = "", ylab = "Eigen values")
@@ -204,9 +205,9 @@ mos_grmtree <- grmtree(resp ~ sex + age + bmi + Education + depressed +
                        control = grm_control)
 ```
 
-**Note:** Unlike previous tree-based item response theory models, currently, the `grmtree` package implemented other multiple adjustments methods apart from the Bonferroni correction. The implemented multiple adjustments methods include, "bonferroni" (Bonferroni), "holm" (Holm-Bonferroni), "BH" (Benjamini-Hochberg), "BY" (Benjamini-Yekutieli), "hochberg" (Hochberg), and "hommel" (Hommel). As it is known, the Bonferronni correction can be overly conservative, and implementing other methods like Benjamini-Hochberg (BH) and Holm-Bonferroni is a valuable addition to this package. 
+**Note:** Unlike previous tree-based item response theory models, currently, the `grmtree` package implemented other post-hoc multiple adjustments methods and also the Bonferroni correction. The implemented post-hoc multiple adjustments methods include, "bonferroni" (Bonferroni), "holm" (Holm-Bonferroni), "BH" (Benjamini-Hochberg), "BY" (Benjamini-Yekutieli), "hochberg" (Hochberg), and "hommel" (Hommel).
 
-See the `grmtree.control` for more information on other control arguments. Also see below an example of using other multiple comparison methods with the control parameters in the function.
+See `?grmtree` and `?grmtree.control` for more information on other control arguments. Also see below an example of using other multiple comparison methods with the control parameters in the function.
 
 ```{r, eval=FALSE}
 ## Bonferroni correction
@@ -269,7 +270,6 @@ More than one subgroup (terminal node) was identified, suggesting the presence o
 
 ## Extract item parameters for terminal nodes
 ```{r}
-
 ## Extract and print the threshold parameters
 thresholds <- threshpar_grmtree(mos_grmtree)
 print(thresholds)
@@ -281,7 +281,6 @@ print(discriminations)
 ## Extract and print the item parameters
 itemspars <- itempar_grmtree(mos_grmtree)
 print(itemspars)
-
 ```
 **Note:** The `itempar_grmtree` extracts both discrimination parameters and average threshold parameters for each item from all terminal nodes of a graded response model tree. See `?itempar_grmtree` for more information.
 

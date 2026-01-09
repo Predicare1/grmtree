@@ -48,3 +48,24 @@ test_that("grmtree.control handles invalid inputs", {
                "must be one of")
 })
 
+test_that("grmtree.control handles initial_alpha correctly", {
+  # Default initial_alpha
+  ctrl <- grmtree.control(p_adjust = "BH", alpha = 0.05)
+  expect_equal(ctrl$initial_alpha, 0.15)  # min(3*0.05, 0.20)
+
+  # Custom initial_alpha
+  ctrl <- grmtree.control(p_adjust = "BH", alpha = 0.05, initial_alpha = 0.10)
+  expect_equal(ctrl$initial_alpha, 0.10)
+
+  # Invalid initial_alpha (too small)
+  expect_error(
+    grmtree.control(p_adjust = "BH", alpha = 0.05, initial_alpha = 0.03),
+    "initial_alpha"
+  )
+
+  # Invalid initial_alpha (equal to alpha)
+  expect_error(
+    grmtree.control(p_adjust = "BH", alpha = 0.05, initial_alpha = 0.05),
+    "initial_alpha"
+  )
+})

@@ -33,7 +33,7 @@ asti$resp <- data.matrix(asti[, 1:4])
 
 ## Fit the GRM Forest
 forest <- grmforest(resp ~ gender + group, data = asti,
-control = grmforest.control(n_tree = 30))
+control = grmforest.control(n_tree = 5))
   importance <- varimp(forest)
 
 ## Print and plot the variable importance scores

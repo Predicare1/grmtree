@@ -44,7 +44,7 @@ including:
 }
 }
 \examples{
-\dontrun{
+\donttest{
 library(grmtree)
 library(hlt)
 data("asti", package = "hlt")

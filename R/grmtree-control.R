@@ -1,13 +1,21 @@
 #' Control Parameters for GRM Trees
 #'
-#' Creates a control object for `grmtree` containing various parameters
-#' that control the tree growing process.
+#' Creates a control object for `grmtree` containing various parameters that
+#' control the tree growing process.
 #'
-#' @param minbucket Minimum number of observations in a terminal node (default: 20).
+#' @param minbucket Minimum number of observations in a terminal node (default:
+#'   20).
 #' @param p_adjust Method for p-value adjustment. One of: "none", "bonferroni",
 #'   "holm", "BH", "BY", "hochberg", or "hommel" (default: "none").
 #' @param alpha Significance level for splitting (default: 0.05).
 #' @param ... Additional arguments passed to `partykit::mob_control()`.
+#' @param initial_alpha For post-hoc adjustment methods (holm, BH, BY, hochberg,
+#'   hommel), the significance threshold for initial tree construction before
+#'   pruning. Must satisfy \code{alpha < initial_alpha < 1}. Default is
+#'   \code{min(3 * alpha, 0.20)}. Lower values produce more conservative results
+#'   but run faster; higher values provide more power but require more
+#'   computation and may increase Type I error. Ignored for "none" and
+#'   "bonferroni" methods.
 #'
 #' @return A list of control parameters with class `grmtree_control`.
 #'
@@ -15,13 +23,13 @@
 #' # Use Bonferroni correction with alpha = 0.01
 #' ctrl <- grmtree.control(p_adjust = "bonferroni", alpha = 0.01)
 #'
-#' @seealso
-#' \code{\link{grmtree}} fits a Graded Response Model Tree
+#' @seealso \code{\link{grmtree}} fits a Graded Response Model Tree
 #'
 #' @export
 #' @importFrom partykit mob_control
 
-grmtree.control <- function(minbucket = 20, p_adjust = "none", alpha = 0.05, ...) {
+grmtree.control <- function(minbucket = 20, p_adjust = "none", alpha = 0.05,
+                            initial_alpha = NULL, ...) {
 
 
   # Validate minbucket
@@ -31,6 +39,7 @@ grmtree.control <- function(minbucket = 20, p_adjust = "none", alpha = 0.05, ...
   if (minbucket < 1) {
     stop("'minbucket' must be at least 1")
   }
+
   # Validate alpha
   if (!is.numeric(alpha)) {
     stop("'alpha' must be numeric")
@@ -38,11 +47,29 @@ grmtree.control <- function(minbucket = 20, p_adjust = "none", alpha = 0.05, ...
   if (alpha <= 0 || alpha >= 1) {
     stop("'alpha' must be between 0 and 1")
   }
+
   # Validate p_adjust method
   p_adjust_methods <- c("none", "bonferroni", "holm", "BH", "BY", "hochberg", "hommel")
   if (!p_adjust %in% p_adjust_methods) {
     stop("'p_adjust' must be one of: ", paste(p_adjust_methods, collapse = ", "))
   }
+
+  # Set default initial_alpha
+  if (is.null(initial_alpha)) {
+    if (p_adjust %in% c("holm", "BH", "BY", "hochberg", "hommel")) {
+      initial_alpha <- min(3 * alpha, 0.20)  # Heuristic: 3x target, capped
+    } else {
+      initial_alpha <- alpha  # Not used for "none" and "bonferroni"
+    }
+  }
+
+  # Validate initial_alpha
+  if (p_adjust %in% c("holm", "BH", "BY", "hochberg", "hommel")) {
+    if (!is.numeric(initial_alpha) || initial_alpha <= alpha || initial_alpha >= 1) {
+      stop("'initial_alpha' must satisfy: alpha < initial_alpha < 1")
+    }
+  }
+
   # Create control object
   control <- tryCatch(
     partykit::mob_control(
@@ -56,8 +83,10 @@ grmtree.control <- function(minbucket = 20, p_adjust = "none", alpha = 0.05, ...
       stop("Error creating control parameters: ", e$message)
     }
   )
+
   # Add custom p_adjust method
   control$p_adjust <- p_adjust
+  control$initial_alpha <- initial_alpha
   class(control) <- c("grmtree_control", class(control))
   return(control)
 }

@@ -39,7 +39,7 @@
 #' }
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #'
 #' library(grmtree)
 #' library(hlt)

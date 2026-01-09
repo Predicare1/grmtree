@@ -4,15 +4,30 @@
 \alias{grmtree.control}
 \title{Control Parameters for GRM Trees}
 \usage{
-grmtree.control(minbucket = 20, p_adjust = "none", alpha = 0.05, ...)
+grmtree.control(
+  minbucket = 20,
+  p_adjust = "none",
+  alpha = 0.05,
+  initial_alpha = NULL,
+  ...
+)
 }
 \arguments{
-\item{minbucket}{Minimum number of observations in a terminal node (default: 20).}
+\item{minbucket}{Minimum number of observations in a terminal node (default:
+20).}
 
 \item{p_adjust}{Method for p-value adjustment. One of: "none", "bonferroni",
 "holm", "BH", "BY", "hochberg", or "hommel" (default: "none").}
 
 \item{alpha}{Significance level for splitting (default: 0.05).}
+
+\item{initial_alpha}{For post-hoc adjustment methods (holm, BH, BY, hochberg,
+hommel), the significance threshold for initial tree construction before
+pruning. Must satisfy \code{alpha < initial_alpha < 1}. Default is
+\code{min(3 * alpha, 0.20)}. Lower values produce more conservative results
+but run faster; higher values provide more power but require more
+computation and may increase Type I error. Ignored for "none" and
+"bonferroni" methods.}
 
 \item{...}{Additional arguments passed to \code{partykit::mob_control()}.}
 }
@@ -20,8 +35,8 @@ grmtree.control(minbucket = 20, p_adjust = "none", alpha = 0.05, ...)
 A list of control parameters with class \code{grmtree_control}.
 }
 \description{
-Creates a control object for \code{grmtree} containing various parameters
-that control the tree growing process.
+Creates a control object for \code{grmtree} containing various parameters that
+control the tree growing process.
 }
 \examples{
 # Use Bonferroni correction with alpha = 0.01

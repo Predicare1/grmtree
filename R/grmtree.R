@@ -200,6 +200,26 @@ grmfit <- function(y, x = NULL, start = NULL, weights = NULL, offset = NULL, ...
 #' vary across subgroups defined by covariates, while maintaining the
 #' conditional distribution of the latent trait within each subgroup.
 #'
+#' ## Post-Hoc Multiple Comparison Adjustments
+#'
+#' For holm, BH, BY, hochberg, and
+#' hommel methods, the algorithm employs a two-stage approach: (1) build a tree
+#' using \code{initial_alpha} as the splitting threshold, (2) apply global
+#' p-value adjustment across all splits, and (3) prune splits that do not meet
+#' the adjusted threshold \code{alpha}. This differs from Bonferroni correction,
+#' which is applied locally during tree construction via \code{partykit::mob}.
+#' The choice of \code{initial_alpha} represents a statistical trade-off. The
+#' default (\code{min(3 * alpha, 0.20)}) provides a balance between power and
+#' computational efficiency. Note that global post-hoc adjustments in
+#' hierarchical tree structures may be conservative compared to per-node
+#' adjustments, as they account for all tests performed during tree exploration.
+#' This global adjustment approach controls the tree-wide error rate and may be
+#' conservative (Type I error often <3%). This conservativeness ensures strong
+#' control of family-wise error rate or false discovery rate across all splits
+#' in the tree. Users requiring less conservative control may prefer the
+#' Bonferroni method, which applies per-node adjustment during tree
+#' construction.
+#'
 #' @references ## Methodological Foundations
 #'
 #'   Samejima, F. (1969). Estimation of latent ability using a response pattern
@@ -298,11 +318,13 @@ grmtree <- function(formula, data, na.action = na.omit,
   # For BH, Holm, BY, hochberg, hommel - use post-hoc pruning approach
   if (p_adjust %in% c("holm", "BH", "BY", "hochberg", "hommel")) {
 
-    # Build full tree with alpha = 1.0 (always split when possible)
+    # Use documented initial_alpha
+    initial_alpha <- control$initial_alpha
+
     ctrl_full <- partykit::mob_control(
       minbucket = minbucket,
       bonferroni = FALSE,
-      alpha = 1.0,
+      alpha = initial_alpha,
       ytype = "matrix"
     )
 

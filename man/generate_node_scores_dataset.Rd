@@ -24,7 +24,7 @@ factor scores. Maintains original row order while adding node membership and
 factor score information.
 }
 \examples{
-\dontrun{
+\donttest{
   library(grmtree)
   library(hlt)
   data("asti", package = "hlt")

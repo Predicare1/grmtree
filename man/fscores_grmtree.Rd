@@ -24,7 +24,7 @@ This function calculates latent factor scores for each terminal node in a GRM
 tree object using specified scoring method (EAP, MAP, ML, or WLE).
 }
 \examples{
-\dontrun{
+\donttest{
   library(grmtree)
   library(hlt)
   data("asti", package = "hlt")

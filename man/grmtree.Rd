@@ -171,6 +171,27 @@ and modeled explicitly through the tree structure, where item parameters can
 vary across subgroups defined by covariates, while maintaining the
 conditional distribution of the latent trait within each subgroup.
 }
+
+\subsection{Post-Hoc Multiple Comparison Adjustments}{
+
+For holm, BH, BY, hochberg, and
+hommel methods, the algorithm employs a two-stage approach: (1) build a tree
+using \code{initial_alpha} as the splitting threshold, (2) apply global
+p-value adjustment across all splits, and (3) prune splits that do not meet
+the adjusted threshold \code{alpha}. This differs from Bonferroni correction,
+which is applied locally during tree construction via \code{partykit::mob}.
+The choice of \code{initial_alpha} represents a statistical trade-off. The
+default (\code{min(3 * alpha, 0.20)}) provides a balance between power and
+computational efficiency. Note that global post-hoc adjustments in
+hierarchical tree structures may be conservative compared to per-node
+adjustments, as they account for all tests performed during tree exploration.
+This global adjustment approach controls the tree-wide error rate and may be
+conservative (Type I error often <3\%). This conservativeness ensures strong
+control of family-wise error rate or false discovery rate across all splits
+in the tree. Users requiring less conservative control may prefer the
+Bonferroni method, which applies per-node adjustment during tree
+construction.
+}
 }
 \examples{
 \donttest{
