@@ -1,6 +1,8 @@
 ## Resubmission
 
-This is a resubmission. In this version I have:
+This is a resubmission. In this version I have reduced the CRAN checktime to < 10 minutes by reducing the number of trees in the test files of `grmforest` and `varimp`.
+
+### Previous Fixes (from prior submission)
  
 * Added methodological references with DOI to the Description field in DESCRIPTION
 

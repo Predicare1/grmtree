@@ -11,13 +11,13 @@ test_that("grmforest.control creates valid control object", {
 
   # Custom parameters
   ctrl <- grmforest.control(
-    n_tree = 50,
+    n_tree = 5,
     sampling = "subsample",
     sample_fraction = 0.5,
     mtry = 2,
     seed = 123
   )
-  expect_equal(ctrl$n_tree, 50L)
+  expect_equal(ctrl$n_tree, 5L)
   expect_equal(ctrl$sampling, "subsample")
   expect_equal(ctrl$seed, 123L)
 
@@ -38,7 +38,7 @@ test_that("grmforest fits with valid inputs", {
   # Test basic forest - may or may not have warnings depending on tree success
   suppressWarnings({
     forest <- grmforest(resp ~ gender + group, data = asti,
-                        control = grmforest.control(n_tree = 30))
+                        control = grmforest.control(n_tree = 5))
   })
 
   expect_s3_class(forest, "grmforest")
@@ -48,7 +48,7 @@ test_that("grmforest fits with valid inputs", {
   # Test with subsampling
   suppressWarnings({
     forest <- grmforest(resp ~ gender + group, data = asti,
-                        control = grmforest.control(n_tree = 30, sampling = "subsample"))
+                        control = grmforest.control(n_tree = 5, sampling = "subsample"))
   })
 
   expect_s3_class(forest, "grmforest")
@@ -74,7 +74,7 @@ test_that("grmforest handles errors appropriately", {
     grmforest(resp[1:5,] ~ gender + group, data = asti[1:5,]), "Insufficient data")
 
   # With tree failures allowed - may or may not have warnings
-  ctrl <- grmforest.control(n_tree = 15, remove_dead_trees = TRUE)
+  ctrl <- grmforest.control(n_tree = 5, remove_dead_trees = TRUE)
   suppressWarnings({
     forest <- grmforest(resp ~ gender + group, data = asti, control = ctrl)
   })

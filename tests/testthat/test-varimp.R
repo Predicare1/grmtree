@@ -13,7 +13,7 @@ test_that("varimp works with valid forest", {
   # Create forest - may or may not have warnings
   suppressWarnings({
     forest <- grmforest(resp ~ gender + group, data = asti,
-                        control = grmforest.control(n_tree = 30))
+                        control = grmforest.control(n_tree = 5))
   })
 
   # Basic functionality
@@ -49,7 +49,7 @@ test_that("varimp handles edge cases", {
   # Create forest
   suppressWarnings({
     forest <- grmforest(resp ~ gender + group, data = asti,
-                        control = grmforest.control(n_tree = 30))
+                        control = grmforest.control(n_tree = 5))
   })
 
   # Invalid inputs
@@ -96,7 +96,7 @@ test_that("plot.varimp works correctly", {
   # Create the forest object
   suppressWarnings({
     forest <- grmforest(resp ~ gender + group, data = asti,
-                        control = grmforest.control(n_tree = 30))
+                        control = grmforest.control(n_tree = 5))
   })
 
   # Create the variable importance
@@ -131,7 +131,7 @@ test_that("internal helper functions work", {
   asti$resp <- data.matrix(asti[, 1:4])
 
   tree <- grmtree(resp ~ gender + group, data = asti,
-                  control = grmtree.control(minbucket = 30))
+                  control = grmtree.control(minbucket = 5))
 
   # get_node_model
   nodes <- partykit::nodeids(tree, terminal = TRUE)
@@ -149,7 +149,7 @@ test_that("internal helper functions work", {
   # evaluate_forest
   suppressWarnings({
     forest <- grmforest(resp ~ gender + group, data = asti,
-                        control = grmforest.control(n_tree = 30))
+                        control = grmforest.control(n_tree = 5))
   })
   expect_type(evaluate_forest(forest), "double")
 })
