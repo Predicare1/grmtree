@@ -67,7 +67,7 @@ flexibility for different data characteristics and research objectives.
   forest <- grmforest(resp ~ gender + group, data = asti)
 
   # Fit with custom control
-  ctrl <- grmforest.control(n_tree = 50, sampling = "subsample")
+  ctrl <- grmforest.control(n_tree = 20, sampling = "subsample")
   forest <- grmforest(resp ~ gender + group, data = asti, control = ctrl)
 }
 

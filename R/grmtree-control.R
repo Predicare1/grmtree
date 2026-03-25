@@ -91,7 +91,7 @@ grmtree.control <- function(minbucket = 20, p_adjust = "none", alpha = 0.05,
   return(control)
 }
 
-# Internal helper function - adjust p-values and prune tree
+# Internal helper function - adjust p-values and prune tree (CORRECTED)
 # @keywords internal
 .adjust_and_prune_tree <- function(tree, method, alpha, verbose = FALSE) {
 
@@ -101,12 +101,19 @@ grmtree.control <- function(minbucket = 20, p_adjust = "none", alpha = 0.05,
 
   if (length(inner_nodes) == 0) return(tree)
 
-  # Collect p-values from each inner node using sctest
-  pval_list <- list()
+  # ============================================================
+  # Step 1: Collect ALL p-values from ALL covariates at ALL nodes
+  # ============================================================
+  # This is the key fix. Previously, we took min(p-values) per node
+  # first, which discarded the within-node multiplicity before
+  # adjustment. Now we keep every individual covariate test.
+
+  pval_node_ids  <- integer(0)
+  pval_cov_names <- character(0)
+  pval_raw       <- numeric(0)
 
   for (node_id in inner_nodes) {
     tryCatch({
-      # sctest returns a MATRIX with rownames "statistic" and "p.value"
       test_matrix <- strucchange::sctest(tree, node = node_id)
 
       if (!is.null(test_matrix) && "p.value" %in% rownames(test_matrix)) {
@@ -116,31 +123,65 @@ grmtree.control <- function(minbucket = 20, p_adjust = "none", alpha = 0.05,
         if (length(pvals) > 0) {
           # Replace exact 0 with machine epsilon
           pvals[pvals == 0] <- .Machine$double.eps
-          min_pval <- min(pvals)
-          pval_list[[as.character(node_id)]] <- min_pval
+
+          pval_node_ids  <- c(pval_node_ids,  rep(node_id, length(pvals)))
+          pval_cov_names <- c(pval_cov_names, names(pvals))
+          pval_raw       <- c(pval_raw,       unname(pvals))
         }
       }
     }, error = function(e) NULL)
   }
 
-  if (length(pval_list) == 0) return(tree)
+  if (length(pval_raw) == 0) return(tree)
 
-  # Convert to vectors
-  node_ids <- as.numeric(names(pval_list))
-  raw_pvals <- unlist(pval_list)
+  # ============================================================
+  # Step 2: Apply GLOBAL p-value adjustment across ALL tests
+  # ============================================================
+  # With P covariates and K inner nodes, we now adjust K*P values.
+  # This properly accounts for BOTH within-node multiplicity
+  # (testing multiple covariates) and across-node multiplicity
+  # (testing at multiple nodes in the tree).
 
-  # Apply p-value adjustment
-  adj_pvals <- stats::p.adjust(raw_pvals, method = method)
+  pval_adj <- stats::p.adjust(pval_raw, method = method)
 
-  # Find nodes where adjusted p >= alpha (should prune)
-  nodes_to_prune <- node_ids[adj_pvals >= alpha]
+  if (verbose) {
+    cat(sprintf("  Post-hoc adjustment (%s): %d total tests across %d nodes\n",
+                method, length(pval_raw), length(inner_nodes)))
+  }
+
+  # ============================================================
+  # Step 3: For each node, check if the split survives
+  # ============================================================
+  # MOB split on the covariate with the smallest raw p-value.
+  # Since p.adjust preserves ordering, that covariate also has
+  # the smallest adjusted p-value at its node. So min(adj_p)
+  # per node is equivalent to checking the split variable.
+
+  nodes_to_prune <- integer(0)
+
+  for (node_id in inner_nodes) {
+    idx <- which(pval_node_ids == node_id)
+    if (length(idx) > 0) {
+      min_adj_p <- min(pval_adj[idx])
+      if (min_adj_p >= alpha) {
+        nodes_to_prune <- c(nodes_to_prune, node_id)
+      }
+
+      if (verbose) {
+        cat(sprintf("    Node %d: min raw p = %.6f, min adj p = %.6f -> %s\n",
+                    node_id, min(pval_raw[idx]), min_adj_p,
+                    ifelse(min_adj_p < alpha, "KEEP", "PRUNE")))
+      }
+    }
+  }
 
   if (length(nodes_to_prune) == 0) return(tree)
 
-  # Sort descending (prune deepest nodes first)
+  # ============================================================
+  # Step 4: Prune non-significant nodes (deepest first)
+  # ============================================================
   nodes_to_prune <- sort(nodes_to_prune, decreasing = TRUE)
 
-  # Prune each node
   for (node_id in nodes_to_prune) {
     current_inner <- setdiff(partykit::nodeids(tree),
                              partykit::nodeids(tree, terminal = TRUE))
