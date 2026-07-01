@@ -1,17 +1,56 @@
+# grmtree 0.2.0 (2026)
+
+## New features
+
+* Added `longitudinal_grmtree()` for response shift (RS) detection in
+  patient-reported outcome measures (PROMs) measured at two time points. The
+  method embeds a constrained two-factor longitudinal graded response model
+  within model-based recursive partitioning to identify patient subgroups whose
+  longitudinal measurement model differs.
+* Added `rs_characterize()`, with a `print()` method, for Phase 2 response shift
+  characterization. Within each terminal node it performs an omnibus likelihood
+  ratio test (constrained vs unconstrained model) and, where significant,
+  item-level tests that classify each item as recalibration, reprioritization,
+  or both. Supports hierarchical p-value correction both across nodes
+  (`global_p_adjust`) and within nodes (`p_adjust`).
+* Added `prepare_longitudinal_data()` to construct the wide-format response
+  matrix required by `longitudinal_grmtree()` from separate baseline and
+  follow-up item columns.
+* Added longitudinal parameter-extraction functions:
+  `threshpar_longitudinal_grmtree()`, `discrpar_longitudinal_grmtree()`,
+  `itempar_longitudinal_grmtree()`, `fscores_longitudinal_grmtree()`, and
+  `latentpar_longitudinal_grmtree()`.
+* Added a `plot()` method for `longitudinal_grmtree` objects (threshold region
+  plots showing the unique items), and two response shift visualizations,
+  `plot_rs_tree()` and `plot_rs_heatmap()`.
+* `generate_node_scores_dataset()` now supports both cross-sectional
+  (`grmtree`) and longitudinal (`longitudinal_grmtree`) trees, and merges node
+  assignments and factor scores back onto the original data frame.
+* Added the synthetic `grmtree_long_data` dataset (longitudinal MOS-SS emotional
+  domain, two time points) for examples, tests, and the new vignette.
+* Added the vignette "Response Shift Detection with the Longitudinal GRMTree".
+
+## Bug fixes
+
+* Corrected the post-hoc multiple-comparison adjustment methods in
+  `grmtree.control()` (Holm, Benjamini-Hochberg, Benjamini-Yekutieli, Hochberg,
+  and Hommel). The previous implementation reduced each node to its minimum
+  p-value before applying the adjustment, which collapsed the within-node
+  multiplicity across covariates. The internal `.adjust_and_prune_tree()` now
+  collects all covariate-by-node p-values, applies the adjustment globally, and
+  then prunes non-significant nodes. This properly accounts for both within-node
+  (multiple covariates) and across-node (multiple splits) multiplicity.
+
 # grmtree 0.1.0 (2025)
 
-This is the first official release of the `grmtree` package, providing methods for fitting and analyzing graded response model (GRM) trees and forests.
+This is the first official release of the `grmtree` package, providing methods
+for fitting and analyzing graded response model (GRM) trees and forests.
 
--   Introduced `grmtree()` for fitting tree-based graded response models.
-
--   Added `grmforest()` for building forests of GRM trees.
-
--   Implemented custom `print()` and `plot()` methods for GRM tree/forest objects.
-
--   Enabled node-level GRM parameter extraction (thresholds, loadings, discrimination).
-
--   Added support for extracting and analyzing factor scores per terminal node.
-
--   Included helper functions for working with terminal nodes and fitted models.
-
--   Vignette walkthrough provided using a sample data.
+* Introduced `grmtree()` for fitting tree-based graded response models.
+* Added `grmforest()` for building forests of GRM trees.
+* Implemented custom `print()` and `plot()` methods for GRM tree/forest objects.
+* Enabled node-level GRM parameter extraction (thresholds, loadings,
+  discrimination).
+* Added support for extracting and analyzing factor scores per terminal node.
+* Included helper functions for working with terminal nodes and fitted models.
+* Vignette walkthrough provided using a sample data.

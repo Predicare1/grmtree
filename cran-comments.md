@@ -1,62 +1,40 @@
-## Resubmission
+## Submission of version 0.2.0
 
-This is a resubmission. In this version I have reduced the CRAN checktime to < 10 minutes by reducing the number of trees in the test files of `grmforest` and `varimp`.
+This is a feature update to the CRAN package `grmtree`.
 
-### Previous Fixes (from prior submission)
- 
-* Added methodological references with DOI to the Description field in DESCRIPTION
+### New features
 
-* Replaced all `\dontrun{}` with `\donttest{}` in R documentation examples as requested
+* Added the Longitudinal GRMTree for detecting response shift in
+  patient-reported outcome measures measured at two time points. New
+  user-facing functions include `longitudinal_grmtree()`, `rs_characterize()`
+  (with a `print()` method), `prepare_longitudinal_data()`, the longitudinal
+  parameter-extraction functions (`threshpar_`, `discrpar_`, `itempar_`,
+  `fscores_`, and `latentpar_longitudinal_grmtree()`), and the response shift
+  visualizations `plot_rs_tree()` and `plot_rs_heatmap()`.
+* Added a new synthetic dataset, `grmtree_long_data`, and a new vignette,
+  "Response Shift Detection with the Longitudinal GRMTree".
 
-* Fixed vignette timeout by setting `eval = FALSE` for all computationally intensive 
-  code chunks in the GRMForest vignette (grmforest fitting, varimp calculations, plotting)
+### Bug fixes
 
-* Reduced example complexity in varimp() documentation (n_tree from 30 to 5)
+* Corrected the post-hoc multiple-comparison adjustment methods in
+  `grmtree.control()` (Holm, Benjamini-Hochberg, Benjamini-Yekutieli, Hochberg,
+  Hommel). The previous implementation applied the adjustment to per-node
+  minimum p-values, which collapsed the within-node multiplicity across
+  covariates; the adjustment is now applied globally across all
+  covariate-by-node tests before pruning.
 
-### Previous Fixes (from prior submission)
+### Notes on check time
 
-This is a resubmission. In this version I have:
-
-### Bug Fixes
-
-* Fixed `grmfit()` function by removing problematic `tryCatch` warning handler that caused "no 'restart' 'muffleWarning' found" errors during tree fitting
-
-* Fixed test failures in `test-grmforest.R` and `test-varimp.R` by updating tests to not expect warnings when tree fitting succeeds
-
-### New Features
-
-* Updated the implementation of multiple comparison adjustment methods (Holm, Benjamini-Hochberg, Benjamini-Yekutieli, Hochberg, Hommel) in `grmtree.control()` using a post-hoc pruning approach
-
-* Added internal helper functions (`.adjust_and_prune_tree()`, `.prune_single_node()`, `.get_parent_path()`) for p-value adjustment and tree pruning
-
-### Previous Fixes (from prior submission)
-
-* Fixed test failure in `test-fscores.R` by properly handling convergence warnings from `mirt::fscores()` using `suppressWarnings()`
-
-* Fixed URL timeout issue by updating GNU license URL in README.md from `https://www.gnu.org/licenses/gpl-3.0` to `https://www.gnu.org/licenses/gpl-3.0.html`
-
-* Removed CRAN badge URL (returns 404 for new packages)
- 
-* Fixed DOI link format in README.md references
-
-* Fixed missing `dplyr::` namespace for `glimpse()` in `grmtree_data` example
-
-* Reduced vignette build time by:
-
-- Removing duplicate GRMTree model fit in getting-started vignette
-- Reduced the number of trees to 3 in the GRMForest vignette
-- Setting `eval = FALSE` for computationally intensive `varimp()` examples in GRMForest vignette
-
-* Updated Date field in DESCRIPTION and updated DESCRIPTION with quoted technical terms
-
-* Resolved tidyselect deprecation warnings by updating .data$var to "var"
-
+The computationally intensive longitudinal model fits are guarded with
+`skip_on_cran()` in the test files, so they run in local and continuous
+integration testing but are skipped on CRAN. All computationally intensive
+vignette code chunks use `eval = FALSE` and display pre-computed example output.
+These measures keep the CRAN check time under 10 minutes while still exercising
+and demonstrating the full functionality.
 
 ## R CMD check results
 
 0 errors | 0 warnings | 0 notes
-
-* This is a new release.
 
 ## Test environments
 
@@ -64,11 +42,27 @@ This is a resubmission. In this version I have:
 * GitHub Actions (ubuntu-latest, windows-latest, macos-latest)
 * win-builder (R-devel)
 
-## Notes on check time
+---
 
-The package vignettes includes computationally intensive functions for IRT model 
-fitting and the GRMForest. Vignette examples have been optimized to 
-reduce CRAN check time while still demonstrating package functionality. All vignette 
-examples with intensive computations now use `eval = FALSE` and display pre-computed 
-example output.
+## Previous submission (version 0.1.1)
 
+This was a resubmission that reduced the CRAN check time to < 10 minutes by
+reducing the number of trees in the test files of `grmforest` and `varimp`.
+
+Earlier fixes across the 0.1.x submissions included:
+
+* Added methodological references with DOI to the Description field.
+* Replaced all `\dontrun{}` with `\donttest{}` in documentation examples.
+* Fixed vignette timeout by setting `eval = FALSE` for computationally intensive
+  code chunks in the GRMForest vignette.
+* Reduced example complexity in `varimp()` documentation.
+* Fixed `grmfit()` by removing a problematic `tryCatch` warning handler that
+  caused "no 'restart' 'muffleWarning' found" errors during tree fitting.
+* Updated the implementation of the multiple-comparison adjustment methods in
+  `grmtree.control()` using a post-hoc pruning approach, with internal helpers
+  `.adjust_and_prune_tree()`, `.prune_single_node()`, and `.get_parent_path()`.
+* Fixed test failures in `test-fscores.R` by handling convergence warnings from
+  `mirt::fscores()` with `suppressWarnings()`.
+* Fixed a URL timeout by updating the GNU license URL in README.md, removed the
+  CRAN badge URL (404 for new packages), and fixed the DOI link format.
+* Resolved tidyselect deprecation warnings by updating `.data$var` to `"var"`.

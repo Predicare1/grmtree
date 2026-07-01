@@ -1,0 +1,321 @@
+---
+title: "Response Shift Detection with the Longitudinal GRMTree"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Response Shift Detection with the Longitudinal GRMTree}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5
+)
+```
+
+# Introduction
+
+The Longitudinal GRMTree (`longitudinal_grmtree`) extends the cross-sectional
+tree-based graded response model to the longitudinal setting, providing a
+data-driven framework for detecting **response shift (RS)** in patient-reported
+outcome measures (PROMs) measured at two time points. Response shift refers to a
+change in the meaning of a respondent's self-evaluation of a construct over time,
+arising from a change in internal standards (recalibration), values
+(reprioritization), or the definition of the construct (reconceptualization).
+
+The method operates in two phases:
+
+* **Phase 1 (`longitudinal_grmtree`):** A constrained two-factor longitudinal GRM
+  (item parameters held equal across time) is embedded within model-based
+  recursive partitioning. The tree identifies patient subgroups whose longitudinal
+  measurement model differs.
+* **Phase 2 (`rs_characterize`):** Within each terminal node, the equality
+  constraints are relaxed and a likelihood ratio test compares the constrained
+  (no-RS) model to an unconstrained (RS-allowed) model. Items exhibiting RS are
+  identified and classified as recalibration, reprioritization, or both.
+
+This vignette demonstrates:
+
+* Preparing wide-format longitudinal PROM data
+* Fitting the Longitudinal GRMTree
+* Characterizing response shift within subgroups
+* Visualizing and extracting results
+
+# Install and load required packages
+
+```{r, eval=FALSE}
+## Install packages from CRAN repository
+install.packages(c("dplyr", "grmtree", "mirt"))
+```
+
+```{r, message=FALSE, warning=FALSE}
+library(dplyr)        # For data manipulation
+library(grmtree)      # For the Longitudinal GRMTree
+library(mirt)         # For the underlying IRT estimation
+```
+
+# Import and explore the data
+
+The package ships with a synthetic longitudinal dataset, `grmtree_long_data`,
+containing responses to the eight MOS-SS emotional domain items at baseline and
+one-year follow-up, together with baseline covariates. The data were simulated
+from a two-factor longitudinal GRM in which older patients (age > 61) experience
+response shift on two items, so the example produces a real, interpretable result.
+
+```{r, message=FALSE}
+## Load the data
+data("grmtree_long_data", package = "grmtree")
+
+## Take a glimpse at the data
+glimpse(grmtree_long_data)
+```
+
+The first eight columns are the baseline items, the next eight are the one-year
+follow-up items (suffixed `_year1`), followed by the covariates.
+
+# Prepare the longitudinal data
+
+The `prepare_longitudinal_data()` helper builds the wide-format response matrix
+required by `longitudinal_grmtree()`. You supply the baseline item names, the
+follow-up item names (in the same order), and any covariates to carry along.
+
+```{r}
+## Baseline item names
+items_t1 <- c("MOS_Listen", "MOS_Info", "MOS_Advice_Crisis", "MOS_Confide",
+              "MOS_Advice_Want", "MOS_Fears", "MOS_Personal", "MOS_Understand")
+
+## Follow-up item names (same order, with the _year1 suffix)
+items_t2 <- paste0(items_t1, "_year1")
+
+## Build the wide-format data
+ld <- prepare_longitudinal_data(
+  data       = grmtree_long_data,
+  items_t1   = items_t1,
+  items_t2   = items_t2,
+  covariates = c("sex", "age", "residency", "job",
+                 "education", "comorbidity_count", "ever_smoker")
+)
+
+## The response matrix lives in the resp_wide column (16 = 2 x 8 columns)
+dim(ld$resp_wide)
+```
+
+# Phase 1: Fit the Longitudinal GRMTree
+
+We fit the tree with the wide-format response matrix on the left-hand side and
+the candidate partitioning variables on the right. The `minbucket` control
+governs the minimum terminal node size; it should be large enough for stable
+estimation of the node-specific model (roughly 10--25 times the number of free
+parameters per node).
+
+```{r, eval=FALSE}
+## Fit the Longitudinal GRMTree
+tree <- longitudinal_grmtree(
+  resp_wide ~ sex + age + residency + job +
+    education + comorbidity_count + ever_smoker,
+  data    = ld,
+  n_items = 8,
+  control = grmtree.control(minbucket = 200, p_adjust = "bonferroni", alpha = 0.05)
+)
+
+## Print the tree structure
+print(tree)
+```
+
+Fitting the full model is computationally intensive, so the chunk above is not
+evaluated when the vignette is built. The tree splits the sample on **age at 61**,
+producing two subgroups. Example output:
+
+```
+Graded Response Model Tree
+
+Model formula:
+resp_wide ~ sex + age + residency + job + education + comorbidity_count +
+    ever_smoker
+
+Fitted party:
+[1] root
+|   [2] age <= 61: n = 597
+|       ... (constrained item parameters, means, covariance) ...
+|   [3] age > 61: n = 903
+|       ... (constrained item parameters, means, covariance) ...
+
+Number of inner nodes:    1
+Number of terminal nodes: 2
+Number of parameters per node: 3
+Objective function (negative log-likelihood): 26051.77
+```
+
+The tree identifies a younger subgroup (age <= 61, n = 597) and an older subgroup
+(age > 61, n = 903) whose constrained longitudinal measurement models differ.
+Note that the split itself does **not** establish response shift; it identifies
+where the measurement model is heterogeneous. Response shift is tested in Phase 2.
+
+# Phase 2: Characterize response shift
+
+`rs_characterize()` performs the Phase 2 test within each terminal node. It
+reports an omnibus RS test (constrained vs unconstrained) per node, and, where
+the omnibus test is significant, an item-level test that classifies each flagged
+item. Two levels of multiple-comparison control are available: `global_p_adjust`
+across nodes (the "in which subgroups?" question) and `p_adjust` within nodes
+(the "which items?" question).
+
+```{r, eval=FALSE}
+## Phase 2: characterize response shift
+rs <- rs_characterize(
+  tree,
+  p_adjust        = "fdr",          # item-level correction within nodes
+  global_p_adjust = "bonferroni",   # omnibus correction across nodes
+  rs_threshold    = 0.3             # RS-type classification threshold
+)
+
+## View the results
+print(rs)
+```
+
+Example output:
+
+```
+=== Response Shift Characterization ===
+
+--- Omnibus RS Test (Constrained vs Unconstrained) ---
+Node 2 (n = 597):
+  LRT: chi2 = 36.791, df = 40, p = 6.155e-01, p_adj = 1.000e+00
+  RS detected: FALSE
+Node 3 (n = 903):
+  LRT: chi2 = 449.498, df = 40, p = 1.067e-70, p_adj = 2.133e-70
+  RS detected: TRUE
+
+--- Item-Level RS Testing ---
+Node 3:
+  Item  2: chi2 =  50.670, df = 5, p_adj = 0.000000  Reprioritization  ***
+  Item  5: chi2 =  19.626, df = 5, p_adj = 0.003915  Significant (small effect) ***
+  Item  6: chi2 = 383.014, df = 5, p_adj = 0.000000  Recalibration     ***
+```
+
+The younger subgroup (Node 2) shows no response shift. The older subgroup
+(Node 3) shows significant response shift, localized to the **Info** item
+(reprioritization; a discrimination change) and the **Fears** item
+(recalibration; a threshold change). This is exactly the pattern built into the
+synthetic data, and it illustrates how the Longitudinal GRMTree pinpoints *which
+subgroup* and *which items* exhibit response shift without pre-specifying the
+subgroups.
+
+## Accessing the results
+
+The returned object stores the omnibus and item-level results as data frames,
+and the raw constrained/unconstrained parameter matrices for each node.
+
+```{r, eval=FALSE}
+rs$global       # one row per terminal node (omnibus results)
+rs$item_level   # one row per item per RS-detected node
+rs$parameters   # constrained and unconstrained item parameters per node
+```
+
+# Visualizing response shift
+
+Two visualization helpers summarize the Phase 2 results. `plot_rs_tree()`
+annotates each terminal node of the tree with its omnibus result and an
+item-level RS colour bar; `plot_rs_heatmap()` gives a standalone item-by-node
+heatmap.
+
+```{r, eval=FALSE}
+## Short item labels for display
+mos_labels <- c("Listen", "Info", "Crisis", "Confide",
+                "Advice", "Fears", "Personal", "Understand")
+
+## Annotated tree with RS results in the terminal nodes
+plot_rs_tree(tree, rs, item_labels = mos_labels)
+
+## Standalone item-level RS heatmap
+plot_rs_heatmap(rs, item_labels = mos_labels)
+
+## Heatmap with chi-squared values shown in the cells
+plot_rs_heatmap(rs, item_labels = mos_labels, show_chi2 = TRUE)
+```
+
+The threshold region plot of the tree itself is also available. Because the
+constrained model enforces equal parameters across time, the plot shows only the
+eight unique items rather than all sixteen columns.
+
+```{r, eval=FALSE}
+## Region plot of the tree with item names
+plot(tree, names = mos_labels, tnex = 2L)
+```
+
+# Extracting parameters and scores
+
+A family of extraction functions returns node-specific quantities. Each returns
+`n_items` rows per node (the unique T1 items), not `2 * n_items`.
+
+```{r, eval=FALSE}
+## Threshold parameters (8 items per node)
+threshpar_longitudinal_grmtree(tree)
+
+## Discrimination parameters (from the a1 column)
+discrpar_longitudinal_grmtree(tree)
+
+## Combined item parameters (discrimination + thresholds)
+itempar_longitudinal_grmtree(tree)
+
+## Latent trait summary per node (mu_T2, variance, T1-T2 correlation)
+latentpar_longitudinal_grmtree(tree)
+```
+
+Factor scores are returned per node, with two columns (`Theta_T1` and
+`Theta_T2`) because the model estimates a latent trait at each time point.
+
+```{r, eval=FALSE}
+## Factor scores per terminal node
+scores <- fscores_longitudinal_grmtree(tree)
+head(scores[["3"]])   # Theta_T1 and Theta_T2 for the older subgroup
+```
+
+Finally, `generate_node_scores_dataset()` merges node membership and factor
+scores back onto the original data frame, which is convenient for downstream
+analyses (for example, relating latent change to clinical outcomes).
+
+```{r, eval=FALSE}
+## Augment the original data with node assignments and factor scores
+scored <- generate_node_scores_dataset(tree, data = ld)
+glimpse(scored)   # all original columns + node + Theta_T1 + Theta_T2
+```
+
+# Interpreting a tree with no split
+
+If `longitudinal_grmtree()` returns a single terminal node (the root), no
+covariate moderates the measurement model. This does **not** imply the absence of
+response shift: `rs_characterize()` still runs on the single root node and can
+detect uniform response shift affecting the whole sample. In other words, the
+tree localizes *heterogeneity* in RS, while Phase 2 tests for RS itself.
+
+# Conclusion
+
+This vignette demonstrated the two-phase Longitudinal GRMTree workflow:
+preparing wide-format data, fitting the tree to identify subgroups
+(`longitudinal_grmtree`), characterizing response shift within those subgroups
+(`rs_characterize`), and visualizing and extracting the results. The method
+identifies both *which subgroups* and *which items* exhibit response shift in a
+single data-driven analysis, without requiring the subgroups to be specified in
+advance.
+
+For the cross-sectional tree-based graded response model, see the "Getting
+Started with the grmtree Package" vignette.
+
+# References
+
+* Sprangers, M. A., & Schwartz, C. E. (1999). Integrating response shift into
+  health-related quality of life research. *Social Science & Medicine*, 48(11),
+  1507--1515.
+* Oort, F. J. (2005). Using structural equation modeling to detect response
+  shifts and true change. *Quality of Life Research*, 14(3), 587--598.
+* Arimoro, O. I., Lix, L. M., Patten, S. B., Sawatzky, R., Sebille, V., Liu, J.,
+  Wiebe, S., Josephson, C. B., & Sajobi, T. T. (2025). Tree-based latent
+  variable model for assessing differential item functioning in patient-reported
+  outcome measures: a simulation study. *Quality of Life Research*.
+  https://doi.org/10.1007/s11136-025-04018-6
+```
+
