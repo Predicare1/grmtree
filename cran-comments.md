@@ -34,7 +34,14 @@ and demonstrating the full functionality.
 
 ## R CMD check results
 
-0 errors | 0 warnings | 0 notes
+0 errors | 0 warnings | 0 notes on win-builder (R-devel).
+
+On the local Windows machine, R CMD check reports one WARNING that
+dependencies (partykit, mirt, libcoin, mvtnorm) were "built under R version
+4.5.3" while running R 4.5.1; this is a local version mismatch only and does
+not occur on CRAN's build systems. A NOTE about being "unable to verify
+current time" reflects a transient network condition and is not
+package-related.
 
 ## Test environments
 
