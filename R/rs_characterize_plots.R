@@ -10,67 +10,81 @@
 ##
 ################################################################################
 
+
+# ---- Helper: format p-value for display ----
+.format_p <- function(p) {
+  if (is.na(p)) return("NA")
+  if (p < 0.001) return("p < 0.001")
+  if (p < 0.01) return(paste0("p = ", formatC(p, format = "f", digits = 3)))
+  if (p < 0.1) return(paste0("p = ", formatC(p, format = "f", digits = 3)))
+  return(paste0("p = ", formatC(p, format = "f", digits = 2)))
+}
+
+# ---- Standardize RS type: keep only the 3 real types + None ----
+.clean_rs_type <- function(rs_type) {
+  ifelse(rs_type %in% c("Recalibration", "Reprioritization", "Both"),
+         rs_type, "None")
+}
+
+# ---- Color mapping (4 types only) ----
+.rs_colors <- c(
+  "Recalibration"    = "#3182BD",   # blue
+  "Reprioritization" = "#E6550D",   # orange-red
+  "Both"             = "#756BB1",   # purple
+  "None"             = "#D9D9D9"    # light gray
+)
+
+
 #' Plot Response Shift Summary Tree
 #'
-#' Displays the Longitudinal GRMTree structure with RS characterization
-#' results annotated in each terminal node panel. Each panel shows the
-#' omnibus test result, latent trait parameters, and an item-level RS
-#' heatmap color-coded by RS type.
+#' Displays the Longitudinal GRMTree structure with RS characterization results
+#' annotated in each terminal node panel. Each panel shows the omnibus test
+#' result, latent trait parameters, and an item-level RS heatmap color-coded by
+#' RS type.
 #'
 #' @param tree A \code{longitudinal_grmtree} object.
 #' @param rs An \code{rs_characterization} object from
 #'   \code{\link{rs_characterize}}.
-#' @param item_labels Optional character vector of short item labels.
-#'   If NULL, uses "Item 1", "Item 2", etc.
+#' @param item_labels Optional character vector of short item labels. If NULL,
+#'   uses "Item 1", "Item 2", etc.
 #' @param tnex Numeric scaling factor for terminal node panels (default: 2.5).
 #' @param drop_terminal Logical (default: TRUE).
 #' @param ... Additional arguments passed to \code{plot.modelparty}.
 #'
 #' @return Invisibly returns the tree object.
 #'
-#' @details
-#' Each terminal node panel contains:
+#' @details Each terminal node panel contains:
 #' \itemize{
 #'   \item Omnibus RS result: chi-squared, adjusted p-value, and detection
 #'     status
-#'   \item Latent parameters: mu_T2 and cor(T1,T2)
+#'   \item Latent parameters: mean shift at T2 and test-retest correlation (mu_T2 and cor(T1,T2)
 #'   \item Item-level RS bar: colored cells for each item indicating RS type
-#'     (blue = recalibration, red = reprioritization, purple = both,
-#'     orange = significant small effect, gray = none/not tested)
+#'     (blue = recalibration, orange = reprioritization,
+#'     purple = both, gray = none)
 #' }
 #'
-#' @examplesIf interactive()
-#' library(grmtree)
+#' @examplesIf interactive() library(grmtree)
 #'
-#' # Load the synthetic longitudinal data
-#' data("grmtree_long_data", package = "grmtree")
+#'   # Load the synthetic longitudinal data data("grmtree_long_data", package =
+#'   "grmtree")
 #'
-#'   # Prepare the wide-format response matrix
-#'   items_t1 <- c("MOS_Listen", "MOS_Info", "MOS_Advice_Crisis", "MOS_Confide",
-#'                 "MOS_Advice_Want", "MOS_Fears", "MOS_Personal", "MOS_Understand")
-#'   ld <- prepare_longitudinal_data(
-#'     data = grmtree_long_data,
-#'     items_t1 = items_t1,
-#'     items_t2 = paste0(items_t1, "_year1"),
-#'     covariates = c("sex", "age", "residency", "job",
-#'                    "education", "comorbidity_count", "ever_smoker")
-#'   )
+#'   # Prepare the wide-format response matrix items_t1 <- c("MOS_Listen",
+#'   "MOS_Info", "MOS_Advice_Crisis", "MOS_Confide", "MOS_Advice_Want",
+#'   "MOS_Fears", "MOS_Personal", "MOS_Understand") ld <-
+#'   prepare_longitudinal_data( data = grmtree_long_data, items_t1 = items_t1,
+#'   items_t2 = paste0(items_t1, "_year1"), covariates = c("sex", "age",
+#'   "residency", "job", "education", "comorbidity_count", "ever_smoker") )
 #'
-#'   # Phase 1: fit the longitudinal GRM tree
-#'   ltree <- longitudinal_grmtree(
-#'     resp_wide ~ sex + age + residency + job +
-#'       education + comorbidity_count + ever_smoker,
-#'     data = ld, n_items = 8,
-#'     control = grmtree.control(minbucket = 200)
-#'   )
+#'   # Phase 1: fit the longitudinal GRM tree ltree <- longitudinal_grmtree(
+#'   resp_wide ~ sex + age + residency + job + education + comorbidity_count +
+#'   ever_smoker, data = ld, n_items = 8, control = grmtree.control(minbucket =
+#'   200) )
 #'
-#'   # Phase 2: characterize response shift within each subgroup
-#'   rs <- rs_characterize(ltree, p_adjust = "fdr",
-#'     global_p_adjust = "bonferroni")
+#'   # Phase 2: characterize response shift within each subgroup rs <-
+#'   rs_characterize(ltree, p_adjust = "fdr", global_p_adjust = "bonferroni")
 #'
-#'   plot_rs_tree(ltree, rs,
-#'     item_labels = c("Listen", "Info", "Crisis", "Confide",
-#'       "Advice", "Fears", "Personal", "Understand"))
+#'   plot_rs_tree(ltree, rs, item_labels = c("Listen", "Info", "Crisis",
+#'   "Confide", "Advice", "Fears", "Personal", "Understand"))
 #'
 #' @export
 #' @import grid
@@ -91,15 +105,6 @@ plot_rs_tree <- function(tree, rs, item_labels = NULL, tnex = 2.5,
   if (length(item_labels) != n_items) {
     stop("item_labels must have length ", n_items)
   }
-
-  # RS type color mapping
-  rs_colors <- c(
-    "Recalibration" = "#3182BD",           # blue
-    "Reprioritization" = "#E6550D",        # red/orange
-    "Both" = "#756BB1",                    # purple
-    "Significant (small effect)" = "#FDAE6B", # light orange
-    "None" = "#D9D9D9"                     # light gray
-  )
 
   # Build panel function
   panelfun <- function(node) {
@@ -146,27 +151,29 @@ plot_rs_tree <- function(tree, rs, item_labels = NULL, tnex = 2.5,
     # ---- Row 2: Omnibus result ----
     grid::pushViewport(grid::viewport(layout.pos.row = 2, layout.pos.col = 1))
 
-    p_display <- if (has_adj && !is.na(node_g$LRT_p_adj)) {
-      formatC(node_g$LRT_p_adj, format = "e", digits = 2)
+    p_raw <- if (has_adj && !is.na(node_g$LRT_p_adj)) {
+      node_g$LRT_p_adj
     } else {
-      formatC(node_g$LRT_p, format = "e", digits = 2)
+      node_g$LRT_p
     }
+    p_display <- .format_p(p_raw)
 
-    rs_label <- if (isTRUE(node_g$RS_detected)) "RS: YES" else "RS: No"
-    rs_col <- if (isTRUE(node_g$RS_detected)) "#C0392B" else "#27AE60"
+    rs_detected <- isTRUE(node_g$RS_detected)
+    rs_label <- if (rs_detected) "Response shift detected" else "No response shift"
+    rs_col <- if (rs_detected) "#C0392B" else "#27AE60"
 
     grid::grid.text(
-      paste0(rs_label, "  (p=", p_display, ")"),
-      gp = grid::gpar(cex = 0.7, col = rs_col, fontface = "bold")
+      paste0(rs_label, "  (", p_display, ")"),
+      gp = grid::gpar(cex = 0.65, col = rs_col, fontface = "bold")
     )
     grid::upViewport()
 
     # ---- Row 3: Latent parameters ----
     grid::pushViewport(grid::viewport(layout.pos.row = 3, layout.pos.col = 1))
     grid::grid.text(
-      paste0("\u03BC_T2=", round(node_g$mu_T2, 2),
-             "  r=", round(node_g$cor_T1_T2, 2)),
-      gp = grid::gpar(cex = 0.65, col = "gray30")
+      paste0("Mean shift (T2): ", round(node_g$mu_T2, 2),
+             "    Cor(T1, T2): ", round(node_g$cor_T1_T2, 2)),
+      gp = grid::gpar(cex = 0.6, col = "gray30")
     )
     grid::upViewport()
 
@@ -181,7 +188,7 @@ plot_rs_tree <- function(tree, rs, item_labels = NULL, tnex = 2.5,
         item_idx <- node_items$Item[i]
         p_val <- if (has_p_adj) node_items$LRT_p_adj[i] else node_items$LRT_p[i]
         if (!is.na(p_val) && p_val < rs$alpha) {
-          item_types[item_idx] <- node_items$RS_type[i]
+          item_types[item_idx] <- .clean_rs_type(node_items$RS_type[i])
         }
       }
     }
@@ -189,15 +196,15 @@ plot_rs_tree <- function(tree, rs, item_labels = NULL, tnex = 2.5,
     # Draw colored rectangles for each item
     cell_width <- 1 / n_items
     for (i in 1:n_items) {
-      col <- rs_colors[item_types[i]]
-      if (is.na(col)) col <- "#D9D9D9"
+      fill <- .rs_colors[item_types[i]]
+      if (is.na(fill)) fill <- "#D9D9D9"
 
       grid::grid.rect(
         x = grid::unit((i - 0.5) * cell_width, "npc"),
         y = grid::unit(0.55, "npc"),
         width = grid::unit(cell_width * 0.85, "npc"),
         height = grid::unit(0.55, "npc"),
-        gp = grid::gpar(fill = col, col = "white", lwd = 0.5)
+        gp = grid::gpar(fill = fill, col = "white", lwd = 0.5)
       )
 
       # Item label below
@@ -222,13 +229,37 @@ plot_rs_tree <- function(tree, rs, item_labels = NULL, tnex = 2.5,
     ...
   )
 
-  # Add legend at bottom
-  grid::grid.text(
-    "RS Type:  \u25A0 Recalibration  \u25A0 Reprioritization  \u25A0 Both  \u25A0 Small effect  \u25A0 None",
-    x = grid::unit(0.5, "npc"),
-    y = grid::unit(0.02, "npc"),
-    gp = grid::gpar(cex = 0.6, col = "gray40")
-  )
+  # ---- Legend at bottom with colored squares ----
+  legend_types <- c("Recalibration", "Reprioritization", "Both", "None")
+  legend_cols  <- .rs_colors[legend_types]
+  n_legend <- length(legend_types)
+
+  legend_total_width <- 0.6
+  legend_start_x <- 0.5 - legend_total_width / 2
+  legend_spacing <- legend_total_width / n_legend
+  legend_y <- 0.025
+
+  for (k in seq_along(legend_types)) {
+    x_pos <- legend_start_x + (k - 1) * legend_spacing
+
+    # Colored square
+    grid::grid.rect(
+      x = grid::unit(x_pos, "npc"),
+      y = grid::unit(legend_y, "npc"),
+      width = grid::unit(0.018, "npc"),
+      height = grid::unit(0.018, "npc"),
+      gp = grid::gpar(fill = legend_cols[k], col = "gray50", lwd = 0.5)
+    )
+
+    # Label next to square
+    grid::grid.text(
+      legend_types[k],
+      x = grid::unit(x_pos + 0.015, "npc"),
+      y = grid::unit(legend_y, "npc"),
+      just = "left",
+      gp = grid::gpar(cex = 0.55, col = "gray30")
+    )
+  }
 
   invisible(tree)
 }
@@ -331,15 +362,6 @@ plot_rs_heatmap <- function(rs, item_labels = NULL, node_labels = NULL,
     title <- "Item-Level Response Shift Characterization"
   }
 
-  # RS type color mapping
-  rs_colors <- c(
-    "Recalibration" = "#3182BD",
-    "Reprioritization" = "#E6550D",
-    "Both" = "#756BB1",
-    "Significant (small effect)" = "#FDAE6B",
-    "None" = "#F0F0F0"
-  )
-
   # Build the matrix of RS types and chi2 values
   rs_matrix <- matrix("Not tested", nrow = n_items, ncol = n_nodes)
   chi2_matrix <- matrix(NA, nrow = n_items, ncol = n_nodes)
@@ -354,7 +376,7 @@ plot_rs_heatmap <- function(rs, item_labels = NULL, node_labels = NULL,
       item_row <- row$Item
 
       if (length(node_col) > 0 && item_row >= 1 && item_row <= n_items) {
-        rs_matrix[item_row, node_col] <- row$RS_type
+        rs_matrix[item_row, node_col] <- .clean_rs_type(row$RS_type)
         chi2_matrix[item_row, node_col] <- row$LRT_chi2
 
         p_val <- if (has_p_adj) row$LRT_p_adj else row$LRT_p
@@ -411,7 +433,7 @@ plot_rs_heatmap <- function(rs, item_labels = NULL, node_labels = NULL,
     rs_det <- isTRUE(g$RS_detected[j])
 
     omnibus_text <- if (rs_det) {
-      paste0("RS: p=", formatC(p_val, format = "e", digits = 1))
+      paste0("RS detected (", .format_p(p_val), ")")
     } else {
       "No RS"
     }
@@ -420,8 +442,8 @@ plot_rs_heatmap <- function(rs, item_labels = NULL, node_labels = NULL,
     grid::grid.text(
       omnibus_text,
       x = grid::unit(x_center, "npc"),
-      y = grid::unit(1 - top_margin + 0.02, "npc"),
-      gp = grid::gpar(cex = 0.6, col = omnibus_col, fontface = "bold")
+      y = grid::unit(1 - top_margin + 0.015, "npc"),
+      gp = grid::gpar(cex = 0.55, col = omnibus_col, fontface = "bold")
     )
   }
 
@@ -442,17 +464,12 @@ plot_rs_heatmap <- function(rs, item_labels = NULL, node_labels = NULL,
 
       # Cell color
       rs_type <- rs_matrix[i, j]
-      if (is.na(rs_type) || rs_type == "Not tested") {
-        fill_col <- "#FFFFFF"
-      } else {
-        fill_col <- rs_colors[rs_type]
-        if (is.na(fill_col)) fill_col <- "#F0F0F0"
-      }
+      is_sig <- sig_matrix[i, j]
 
-      # Only color significant cells
-      if (!sig_matrix[i, j] && rs_type != "None" && rs_type != "Not tested") {
-        # Significant at unadjusted but not adjusted: light tint
-        fill_col <- "#F5F5F5"
+      if (is_sig && rs_type %in% c("Recalibration", "Reprioritization", "Both")) {
+        fill_col <- .rs_colors[rs_type]
+      } else {
+        fill_col <- "#F0F0F0"
       }
 
       # Draw cell
@@ -470,9 +487,10 @@ plot_rs_heatmap <- function(rs, item_labels = NULL, node_labels = NULL,
           round(chi2_matrix[i, j], 1),
           x = grid::unit(x_center, "npc"),
           y = grid::unit(y_center, "npc"),
-          gp = grid::gpar(cex = 0.5, col = if (sig_matrix[i, j]) "white" else "gray50")
+          gp = grid::gpar(cex = 0.5,
+                          col = if (is_sig) "white" else "gray50")
         )
-      } else if (sig_matrix[i, j]) {
+      } else if (is_sig) {
         grid::grid.text(
           "*",
           x = grid::unit(x_center, "npc"),
@@ -481,41 +499,40 @@ plot_rs_heatmap <- function(rs, item_labels = NULL, node_labels = NULL,
         )
       }
     }
+
   }
 
   # ---- Legend ----
-  legend_types <- c("Recalibration", "Reprioritization", "Both",
-                    "Significant (small effect)", "None")
+  legend_types <- c("Recalibration", "Reprioritization", "Both", "None")
   legend_x_start <- 1 - right_margin + 0.02
   legend_y_start <- 0.85
 
   grid::grid.text(
     "RS Type",
-    x = grid::unit(legend_x_start, "npc"),
-    y = grid::unit(legend_y_start + 0.03, "npc"),
+    x = grid::unit(legend_x, "npc"),
+    y = grid::unit(legend_y_start + 0.04, "npc"),
     just = "left",
-    gp = grid::gpar(cex = 0.6, fontface = "bold")
+    gp = grid::gpar(cex = 0.65, fontface = "bold")
   )
 
   for (k in seq_along(legend_types)) {
-    y_pos <- legend_y_start - (k - 1) * 0.055
+    y_pos <- legend_y_start - (k - 1) * 0.065
 
     grid::grid.rect(
-      x = grid::unit(legend_x_start + 0.01, "npc"),
+      x = grid::unit(legend_x + 0.012, "npc"),
       y = grid::unit(y_pos, "npc"),
-      width = grid::unit(0.025, "npc"),
-      height = grid::unit(0.025, "npc"),
-      gp = grid::gpar(fill = rs_colors[legend_types[k]], col = "gray50")
+      width = grid::unit(0.03, "npc"),
+      height = grid::unit(0.03, "npc"),
+      gp = grid::gpar(fill = .rs_colors[legend_types[k]],
+                      col = "gray50", lwd = 0.5)
     )
 
-    # Short labels for legend
-    short_labels <- c("Recalib.", "Reprior.", "Both", "Small", "None")
     grid::grid.text(
-      short_labels[k],
-      x = grid::unit(legend_x_start + 0.035, "npc"),
+      legend_types[k],
+      x = grid::unit(legend_x + 0.04, "npc"),
       y = grid::unit(y_pos, "npc"),
       just = "left",
-      gp = grid::gpar(cex = 0.5)
+      gp = grid::gpar(cex = 0.55)
     )
   }
 
