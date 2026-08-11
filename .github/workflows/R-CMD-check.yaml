@@ -28,7 +28,6 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
-      PKGCACHE_USE_QS2: "false"     # avoid the qs2/RcppParallel TBB clash on macOS runners
 
     steps:
       - uses: actions/checkout@v5
@@ -40,6 +39,12 @@ jobs:
           r-version: ${{ matrix.config.r }}
           http-user-agent: ${{ matrix.config.http-user-agent }}
           use-public-rspm: true
+
+      # FIX: Force macOS to compile qs2 from source to ensure proper TBB linking
+      - name: Fix macOS TBB binary mismatch
+        if: runner.os == 'macOS'
+        run: |
+          Rscript -e 'install.packages(c("RcppParallel", "qs2"), type = "source")'
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
