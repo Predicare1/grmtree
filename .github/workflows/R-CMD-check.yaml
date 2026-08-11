@@ -28,6 +28,7 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
+      PKGCACHE_USE_QS2: "false"     # avoid the qs2/RcppParallel TBB clash on macOS runners
 
     steps:
       - uses: actions/checkout@v5
@@ -39,9 +40,6 @@ jobs:
           r-version: ${{ matrix.config.r }}
           http-user-agent: ${{ matrix.config.http-user-agent }}
           use-public-rspm: true
-
-      - if: runner.os == 'macOS'
-        run: brew install gcc          # provides libgfortran / libquadmath for mirt
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
