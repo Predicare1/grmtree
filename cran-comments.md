@@ -18,6 +18,8 @@ GRM Forest functions. No user-facing API changes.
   tree and forest construction. Fitted trees are unchanged, as the score
   functions used by the partitioning tests are identical with or without
   standard errors.
+* Adjust `longitudinal_grmtree()` to restrict the split test to ITEM parameters 
+  (measurement invariance) and not include the structural parameters.
 * Corrected the response-shift plots `plot_rs_tree()` and `plot_rs_heatmap()`:
   p-values now display in fixed notation, latent-parameter and legend labels
   are spelled out, and the RS-type legend is limited to the four shift

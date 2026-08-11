@@ -19,8 +19,8 @@ plot_rs_tree(
 \item{rs}{An \code{rs_characterization} object from
 \code{\link{rs_characterize}}.}
 
-\item{item_labels}{Optional character vector of short item labels.
-If NULL, uses "Item 1", "Item 2", etc.}
+\item{item_labels}{Optional character vector of short item labels. If NULL,
+uses "Item 1", "Item 2", etc.}
 
 \item{tnex}{Numeric scaling factor for terminal node panels (default: 2.5).}
 
@@ -32,20 +32,20 @@ If NULL, uses "Item 1", "Item 2", etc.}
 Invisibly returns the tree object.
 }
 \description{
-Displays the Longitudinal GRMTree structure with RS characterization
-results annotated in each terminal node panel. Each panel shows the
-omnibus test result, latent trait parameters, and an item-level RS
-heatmap color-coded by RS type.
+Displays the Longitudinal GRMTree structure with RS characterization results
+annotated in each terminal node panel. Each panel shows the omnibus test
+result, latent trait parameters, and an item-level RS heatmap color-coded by
+RS type.
 }
 \details{
 Each terminal node panel contains:
 \itemize{
 \item Omnibus RS result: chi-squared, adjusted p-value, and detection
 status
-\item Latent parameters: mu_T2 and cor(T1,T2)
+\item Latent parameters: mean shift at T2 and test-retest correlation (mu_T2 and cor(T1,T2)
 \item Item-level RS bar: colored cells for each item indicating RS type
-(blue = recalibration, red = reprioritization, purple = both,
-orange = significant small effect, gray = none/not tested)
+(blue = recalibration, orange = reprioritization,
+purple = both, gray = none)
 }
 }
 \examples{
@@ -78,8 +78,10 @@ data("grmtree_long_data", package = "grmtree")
   rs <- rs_characterize(ltree, p_adjust = "fdr",
     global_p_adjust = "bonferroni")
 
+  # Plot the rs tree
   plot_rs_tree(ltree, rs,
-    item_labels = c("Listen", "Info", "Crisis", "Confide",
-      "Advice", "Fears", "Personal", "Understand"))
+  item_labels = c("Listen", "Info", "Crisis",
+  "Confide", "Advice", "Fears",
+  "Personal", "Understand"))
 \dontshow{\}) # examplesIf}
 }

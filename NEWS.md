@@ -14,6 +14,8 @@
 * `grmfit()` no longer computes standard errors during fitting, which removes a
   `chol()` failure on hard resamples and speeds up tree/forest construction;
   results are unchanged.
+* Adjust `longitudinal_grmtree()` to restrict the split test to ITEM parameters 
+  (measurement invariance) and not include the structural parameters.
 * Corrected the response-shift visualizations `plot_rs_tree()` and
   `plot_rs_heatmap()`. Both now display p-values in fixed notation (e.g.
   "p < 0.001") rather than scientific notation, label the latent parameters as
@@ -27,8 +29,6 @@
   log-likelihood and averages paired within-tree permutation differences;
   out-of-bag membership is stored as row indices and forests can be combined
   with `c()`.
-  
-  
   
   
 # grmtree 0.2.0 (2026)

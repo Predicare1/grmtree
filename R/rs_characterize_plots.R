@@ -63,28 +63,40 @@
 #'     purple = both, gray = none)
 #' }
 #'
-#' @examplesIf interactive() library(grmtree)
+#' @examplesIf interactive()
+#' library(grmtree)
 #'
-#'   # Load the synthetic longitudinal data data("grmtree_long_data", package =
-#'   "grmtree")
+#' # Load the synthetic longitudinal data
+#' data("grmtree_long_data", package = "grmtree")
 #'
-#'   # Prepare the wide-format response matrix items_t1 <- c("MOS_Listen",
-#'   "MOS_Info", "MOS_Advice_Crisis", "MOS_Confide", "MOS_Advice_Want",
-#'   "MOS_Fears", "MOS_Personal", "MOS_Understand") ld <-
-#'   prepare_longitudinal_data( data = grmtree_long_data, items_t1 = items_t1,
-#'   items_t2 = paste0(items_t1, "_year1"), covariates = c("sex", "age",
-#'   "residency", "job", "education", "comorbidity_count", "ever_smoker") )
+#'   # Prepare the wide-format response matrix
+#'   items_t1 <- c("MOS_Listen", "MOS_Info", "MOS_Advice_Crisis", "MOS_Confide",
+#'                 "MOS_Advice_Want", "MOS_Fears", "MOS_Personal", "MOS_Understand")
+#'   ld <- prepare_longitudinal_data(
+#'     data = grmtree_long_data,
+#'     items_t1 = items_t1,
+#'     items_t2 = paste0(items_t1, "_year1"),
+#'     covariates = c("sex", "age", "residency", "job",
+#'                    "education", "comorbidity_count", "ever_smoker")
+#'   )
 #'
-#'   # Phase 1: fit the longitudinal GRM tree ltree <- longitudinal_grmtree(
-#'   resp_wide ~ sex + age + residency + job + education + comorbidity_count +
-#'   ever_smoker, data = ld, n_items = 8, control = grmtree.control(minbucket =
-#'   200) )
+#'   # Phase 1: fit the longitudinal GRM tree
+#'   ltree <- longitudinal_grmtree(
+#'     resp_wide ~ sex + age + residency + job +
+#'       education + comorbidity_count + ever_smoker,
+#'     data = ld, n_items = 8,
+#'     control = grmtree.control(minbucket = 200)
+#'   )
 #'
-#'   # Phase 2: characterize response shift within each subgroup rs <-
-#'   rs_characterize(ltree, p_adjust = "fdr", global_p_adjust = "bonferroni")
+#'   # Phase 2: characterize response shift within each subgroup
+#'   rs <- rs_characterize(ltree, p_adjust = "fdr",
+#'     global_p_adjust = "bonferroni")
 #'
-#'   plot_rs_tree(ltree, rs, item_labels = c("Listen", "Info", "Crisis",
-#'   "Confide", "Advice", "Fears", "Personal", "Understand"))
+#'   # Plot the rs tree
+#'   plot_rs_tree(ltree, rs,
+#'   item_labels = c("Listen", "Info", "Crisis",
+#'   "Confide", "Advice", "Fears",
+#'   "Personal", "Understand"))
 #'
 #' @export
 #' @import grid
@@ -504,7 +516,7 @@ plot_rs_heatmap <- function(rs, item_labels = NULL, node_labels = NULL,
 
   # ---- Legend ----
   legend_types <- c("Recalibration", "Reprioritization", "Both", "None")
-  legend_x_start <- 1 - right_margin + 0.02
+  legend_x <- 1 - right_margin + 0.02
   legend_y_start <- 0.85
 
   grid::grid.text(
