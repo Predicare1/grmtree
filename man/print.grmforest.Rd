@@ -2,18 +2,18 @@
 % Please edit documentation in R/grmforest.R
 \name{print.grmforest}
 \alias{print.grmforest}
-\title{Print Method for GRM Forest}
+\title{Print Method for GRM Forests}
 \usage{
 \method{print}{grmforest}(x, ...)
 }
 \arguments{
-\item{x}{A \code{grmforest} object}
+\item{x}{A \code{grmforest} object.}
 
-\item{...}{Additional arguments (currently unused)}
+\item{...}{Currently unused.}
 }
 \value{
-Invisibly returns the input object
+Invisibly returns \code{x}.
 }
 \description{
-Print Method for GRM Forest
+Print Method for GRM Forests
 }

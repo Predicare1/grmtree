@@ -58,6 +58,8 @@ resp.data <- grmtree_data %>%
                    Education, job, smoker,
                    multimorbidity)), as.factor) 
 
+## Note: Partitioning variables must be factor/numeric (character columns are coerced automatically, but converting yourself is cleaner).
+
 ## Explore the data
 head(resp.data)
 
@@ -81,14 +83,17 @@ grm_control <- grmtree.control(
   p_adjust = "BH", alpha = 0.05)
 
 ## Define the forest control parameters
+p <- 9
+
 forest_control <- grmforest.control(
   n_tree = 3, # Number of trees (Reduced for vignette build time)
-  sampling = "bootstrap",  # Bootstrap method; resampling also available
+  sampling = "subsample",  # subsample method; bootstrap also available
   sample_fraction = 0.632,
-  mtry = sqrt(9),  # Usually the square root of the number of covariates
+  mtry = ceiling(sqrt(p)),  # Usually the square root of the number of covariates
   control = grm_control,
   remove_dead_trees = TRUE, # Remove any null GRMTree
-  seed = 123
+  seed = 123,
+  n_cores = 2            # Parallel now works (PSOCK/Windows included)
 )
 ```
 
@@ -104,7 +109,6 @@ mos_forest <- grmforest(
 )
 
 ## Get the summary of the fitted forest
-summary(mos_forest)
 print(mos_forest)
 
 ## Plot a tree in the forest
@@ -124,10 +128,18 @@ print(importance)
 
 Example output:
 ```
-           age         smoker            bmi multimorbidity            sex 
-     403.07554      220.37908       39.02621       37.00120       32.06389 
-     Education      residency      depressed            job 
-       0.00000        0.00000        0.00000        0.00000 
+GRM Forest variable importance (permutation)
+  Trees: 50  Mean OOB log-likelihood: -9378.57 
+  
+       age         smoker    job     multimorbidity     sex      residency    bmi 
+        12.391      6.646   1.904       1.855          1.594      0.687      0.137 
+     depressed      Education 
+         0.120         -0.262 
+
+attr(,"n_tree")
+[1] 50
+attr(,"baseline")
+[1] -9378.569
 ```
 
 ## Plot the variable importance of each variable 

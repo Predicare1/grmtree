@@ -35,7 +35,7 @@ grmfit <- function(y, x = NULL, start = NULL, weights = NULL, offset = NULL, ...
   }
 
   # Fit GRM model
-  fit <- mirt::mirt(y, model = 1, itemtype = 'graded', SE = TRUE, verbose = FALSE, ...)
+  fit <- mirt::mirt(y, model = 1, itemtype = 'graded', SE = FALSE, verbose = FALSE, ...)
 
   # Extract coefficients
   coefs <- mirt::coef(fit, IRTpars = TRUE, simplify = TRUE)
@@ -310,6 +310,13 @@ grmtree <- function(formula, data, na.action = na.omit,
     stop("Response variable must be a matrix. Did you provide a multi-item response matrix?")
   }
 
+  # Coerce character partitioning variables to factor (partykit routes
+  # categorical splits by integer level codes and errors on a bare character
+  # column with "variable N is not integer").
+  .pv <- all.vars(formula[[3L]])
+  .cv <- .pv[vapply(.pv, function(v) v %in% names(data) && is.character(data[[v]]), logical(1L))]
+  if (length(.cv)) for (v in .cv) data[[v]] <- factor(data[[v]])
+
   # Get p_adjust method from control
   p_adjust <- if (!is.null(control$p_adjust)) control$p_adjust else "none"
   alpha <- control$alpha
@@ -325,7 +332,8 @@ grmtree <- function(formula, data, na.action = na.omit,
       minbucket = minbucket,
       bonferroni = FALSE,
       alpha = initial_alpha,
-      ytype = "matrix"
+      ytype = "matrix",
+      mtry = if (!is.null(control$mtry)) control$mtry else Inf
     )
 
     rval <- partykit::mob(

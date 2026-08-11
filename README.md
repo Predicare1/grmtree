@@ -57,6 +57,7 @@ devtools::install_github("Predicare1/grmtree", build_vignettes = TRUE)
 ```{r}
 # Load the package
 library(grmtree)
+library(dplyr)
 
 # Load the data
 data("grmtree_data") # Sample dataset included with package
@@ -151,7 +152,9 @@ browseVignettes("grmtree")
 # Fit a forest with 100 trees
 forest <- grmforest(resp ~ sex + age + Education,
                        data = resp.data,
-                   ctrl = grmforest.control(control = grm_control, n_tree = 100))
+                   control = grmforest.control(control = grm_control, 
+                   n_tree = 50, 
+                   n_cores = 2))
 
 # Variable importance
 vim <- varimp(forest)

@@ -170,7 +170,7 @@ longitudinal_grmfit <- function(y, x = NULL, start = NULL, weights = NULL,
       data = y,
       model = mirt::mirt.model(model_spec),
       itemtype = 'graded',
-      SE = estfun,
+      SE = FALSE,
       verbose = FALSE,
       technical = list(NCYCLES = 1000),
       ...
@@ -205,8 +205,8 @@ longitudinal_grmfit <- function(y, x = NULL, start = NULL, weights = NULL,
 #' using model-based recursive partitioning (MOB) to detect measurement
 #' heterogeneity in patient-reported outcome measures (PROMs) measured at two
 #' time points. The Longitudinal GRMTree extends the cross-sectional
-#' \code{\link[grmtree]{grmtree}} to the longitudinal setting by embedding
-#' a constrained two-factor GRM within the MOB framework. The resulting tree
+#' \code{\link[grmtree]{grmtree}} to the longitudinal setting by embedding a
+#' constrained two-factor GRM within the MOB framework. The resulting tree
 #' identifies patient subgroups where the longitudinal measurement model
 #' differs, providing the foundation for subgroup-specific response shift
 #' characterization via \code{\link{rs_characterize}}.
@@ -219,12 +219,11 @@ longitudinal_grmfit <- function(y, x = NULL, start = NULL, weights = NULL,
 #'   \code{n_items} columns are Time 2 (T2) responses for the same items.
 #' @param data A data frame containing the variables in the formula. Must
 #'   include the response matrix as a matrix-valued column (created via
-#'   \code{data$resp_wide <- as.matrix(...)}) and all partitioning variables
-#'   as separate columns.
+#'   \code{data$resp_wide <- as.matrix(...)}) and all partitioning variables as
+#'   separate columns.
 #' @param n_items Integer specifying the number of items per time point. If
-#'   \code{NULL} (default), automatically detected as half the number of
-#'   columns in the response matrix. Must satisfy
-#'   \code{ncol(response) == 2 * n_items}.
+#'   \code{NULL} (default), automatically detected as half the number of columns
+#'   in the response matrix. Must satisfy \code{ncol(response) == 2 * n_items}.
 #' @param na.action How to handle missing values. Default is \code{na.omit},
 #'   which removes rows with any missing values in the response matrix or
 #'   partitioning variables.
@@ -244,9 +243,9 @@ longitudinal_grmfit <- function(y, x = NULL, start = NULL, weights = NULL,
 #'       (Benjamini-Hochberg, applied post-hoc with pruning), and others.
 #'       See \code{\link[grmtree]{grmtree.control}} for details.}
 #'   }
-#' @param mtry Number of variables randomly sampled as candidates at each
-#'   split. If \code{NULL} (default), all variables are considered. Can be
-#'   used for random forest extensions.
+#' @param mtry Number of variables randomly sampled as candidates at each split.
+#'   If \code{NULL} (default), all variables are considered. Can be used for
+#'   random forest extensions.
 #' @param ... Additional arguments passed to the internal fitting function
 #'   \code{\link{longitudinal_grmfit}} and ultimately to
 #'   \code{\link[mirt]{mirt}}.
@@ -268,34 +267,31 @@ longitudinal_grmfit <- function(y, x = NULL, start = NULL, weights = NULL,
 #'     \item{\code{info$call}}{The original function call.}
 #'   }
 #'
-#' @details
-#' ## Overview
+#' @details ## Overview
 #'
-#' The Longitudinal GRMTree is a unified framework for response shift
-#' detection that operates in two phases:
+#' The Longitudinal GRMTree is a unified framework for response shift detection
+#' that operates in two phases:
 #'
 #' \strong{Phase 1 (this function):} Identifies patient subgroups where the
 #' constrained longitudinal measurement model differs. The constrained model
 #' represents the null hypothesis of no response shift (item parameters equal
-#' across time). MOB tests whether this null model's parameters are stable
-#' across patient covariates and recursively partitions the sample where
-#' instability is detected.
+#' across time). MOB tests whether this null model's \strong{item} parameters
+#' are stable across patient covariates and recursively partitions the sample
+#' where instability is detected.
 #'
-#' \strong{Phase 2 (\code{\link{rs_characterize}}):} Within each terminal
-#' node, tests whether item parameters actually change from T1 to T2 by
-#' comparing the constrained model to an unconstrained model using likelihood
-#' ratio tests. This phase characterizes response shift at the item level,
-#' classifying changes as recalibration, reprioritization, or both.
+#' \strong{Phase 2 (\code{\link{rs_characterize}}):} Within each terminal node,
+#' tests whether item parameters actually change from T1 to T2 by comparing the
+#' constrained model to an unconstrained model using likelihood ratio tests.
+#' This phase characterizes response shift at the item level, classifying
+#' changes as recalibration, reprioritization, or both.
 #'
 #' ## Constrained Two-Factor Longitudinal GRM
 #'
-#' Let \eqn{Y_{im}} denote the response of individual \eqn{i} to item \eqn{m}
-#' at time \eqn{t}. The longitudinal GRM specifies two correlated latent
-#' factors:
+#' Let \eqn{Y_{im}} denote the response of individual \eqn{i} to item \eqn{m} at
+#' time \eqn{t}. The longitudinal GRM specifies two correlated latent factors:
 #'
-#' \deqn{\theta_{i,T1} \sim N(0, 1)}
-#' \deqn{\theta_{i,T2} \sim N(\mu_{T2}, \sigma^2_{T2})}
-#' \deqn{Cov(\theta_{i,T1}, \theta_{i,T2}) = \sigma_{12}}
+#' \deqn{\theta_{i,T1} \sim N(0, 1)} \deqn{\theta_{i,T2} \sim N(\mu_{T2},
+#' \sigma^2_{T2})} \deqn{Cov(\theta_{i,T1}, \theta_{i,T2}) = \sigma_{12}}
 #'
 #' For item \eqn{m} at time \eqn{t}, the graded response model is:
 #'
@@ -322,10 +318,12 @@ longitudinal_grmfit <- function(y, x = NULL, start = NULL, weights = NULL,
 #'
 #' \strong{Step 2: Parameter Stability Testing.} For each covariate
 #' \eqn{X_p}, compute individual score function contributions
-#' \eqn{s(\hat{\beta}; \mathbf{y}_i)} and test whether these scores
-#' fluctuate systematically with \eqn{X_p} using structural change tests.
-#' The null hypothesis is that model parameters are stable across all
-#' values of \eqn{X_p}.
+#' \eqn{s(\hat{\beta}; \mathbf{y}_i)} and test whether the \strong{item-parameter}
+#' scores fluctuate systematically with \eqn{X_p} using structural change
+#' tests; the structural-parameter scores (the follow-up mean \eqn{\mu_{T2}}
+#' and the between-occasion covariance \eqn{\sigma_{12}}) are held out, so the
+#' null hypothesis is that the item parameters are stable across all values of
+#' \eqn{X_p}.
 #'
 #' \strong{Step 3: Recursive Partitioning.} If significant instability is
 #' detected (after p-value adjustment):
@@ -362,15 +360,18 @@ longitudinal_grmfit <- function(y, x = NULL, start = NULL, weights = NULL,
 #' }
 #'
 #' ## Interpretation
-#'
-#' The tree structure identifies patient subgroups where the constrained
-#' longitudinal measurement model differs. This can reflect:
+#' The tree structure identifies patient subgroups whose \strong{item}
+#' parameters differ, i.e. subgroups with differential item functioning in the
+#' constrained longitudinal measurement model. A split reflects:
 #' \itemize{
 #'   \item Different item discrimination patterns across subgroups
 #'   \item Different threshold locations across subgroups
-#'   \item Different magnitudes of true latent change (\eqn{\mu_{T2}})
-#'   \item Different test-retest correlations
 #' }
+#' The structural parameters -- the true latent change \eqn{\mu_{T2}} and the
+#' test-retest correlation -- are estimated and reported at every node but are
+#' \strong{held out of the split test}, so a subgroup difference in how much the
+#' construct truly changed, or in its stability over time, cannot by itself
+#' produce a split.
 #'
 #' Crucially, the tree does \strong{not} directly detect response shift
 #' (temporal change in item parameters within a subgroup). Response shift
@@ -515,6 +516,20 @@ longitudinal_grmtree <- function(formula, data, n_items = NULL,
     stop("Expected ", 2 * n_items, " columns, found ", ncol(y))
   }
   if (n_items < 2) stop("Need at least 2 items per time point.")
+
+  # ---- Restrict the split test to ITEM parameters (measurement invariance) ----
+  # Fit the root once, locate the structural (latent mean / covariance) score
+  # columns, and hold them out so a split marks item-measurement heterogeneity,
+  # not a difference in true change (mu_T2) or test-retest (sigma_12). mirt
+  # places the GROUP parameters last in estfun, so the trailing n_struct columns
+  # are the structural ones.
+  root      <- longitudinal_grmfit(y, estfun = TRUE, object = TRUE, ...)
+  E         <- ncol(root$estfun)
+  vv        <- mirt::mod2values(root$object); vv <- vv[vv$est, ]
+  n_struct  <- sum(vv$item == "GROUP")          # e.g. Theta_T2 mean + T1-T2 cov
+  item_cols <- if (n_struct > 0 && n_struct < E)
+    setdiff(seq_len(E), seq.int(E - n_struct + 1L, E)) else seq_len(E)
+
   # Fitting function closure
   long_grmfit_wrapper <- function(y, x = NULL, start = NULL, weights = NULL,
                                   offset = NULL, ..., estfun = FALSE,
@@ -529,7 +544,9 @@ longitudinal_grmtree <- function(formula, data, n_items = NULL,
     initial_alpha <- control$initial_alpha
     ctrl_full <- partykit::mob_control(
       minbucket = minbucket, bonferroni = FALSE,
-      alpha = initial_alpha, ytype = "matrix"
+      alpha = initial_alpha, ytype = "matrix",
+      parm = item_cols,
+      mtry = if (!is.null(control$mtry)) control$mtry else Inf
     )
     rval <- partykit::mob(
       formula = formula, data = data,
@@ -540,6 +557,7 @@ longitudinal_grmtree <- function(formula, data, n_items = NULL,
       rval <- .adjust_and_prune_tree(rval, p_adjust, alpha)
     }
   } else {
+    control$parm <- item_cols
     rval <- partykit::mob(
       formula = formula, data = data,
       fit = long_grmfit_wrapper,

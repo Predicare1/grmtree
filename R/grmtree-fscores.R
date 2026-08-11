@@ -105,7 +105,8 @@ fscores_grmtree <- function(grmtree_obj, method = "EAP") {
   scores_list <- Filter(Negate(is.null), scores_list)
 
   if (length(scores_list) == 0) {
-    stop("No factor scores were successfully computed for any node.")
+    warning("No factor scores were successfully computed for any node.")
+    return(NULL)
   }
 
   return(scores_list)

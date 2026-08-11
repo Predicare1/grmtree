@@ -9,37 +9,53 @@ grmforest(formula, data, control = grmforest.control(), ...)
 \arguments{
 \item{formula}{A formula specifying the model structure with the response
 matrix on the left and partitioning variables on the right (e.g.,
-\code{response_matrix ~ age + gender + education + clinical_variables}).}
+\code{response_matrix ~ age + gender + education + clinical_variables}). The
+response may be a matrix column of \code{data} or an inline
+\code{cbind(item1, item2,...)} construction.}
 
 \item{data}{A data frame containing the response matrix and partitioning
-variables. The response matrix should contain polytomous items coded
-as ordered factors.}
+variables. The response matrix should contain polytomous items coded as
+ordered factors.}
 
 \item{control}{A control object created by \code{grmforest.control()}.}
 
 \item{...}{Additional arguments passed to underlying \code{grmtree()} function.}
 }
 \value{
-An object of class \code{grmforest} containing: \item{trees}{List of
-fitted GRM trees} \item{oob_samples}{List of out-of-bag samples for each
-tree} \item{formula}{The model formula} \item{data}{The original dataset}
-\item{call}{The function call}
+An object of class \code{grmforest}, a list with components:
+\item{trees}{List of fitted \code{grmtree} objects.}
+\item{oob_indices}{List of integer vectors giving, for each tree, the row
+positions of \code{data} held out of that tree's resample.}
+\item{in_indices}{List of integer vectors giving the rows used to fit
+each tree.}
+\item{formula}{The model formula.}
+\item{data}{The original data frame.}
+\item{control}{The control object used.}
+\item{call}{The matched call.}
 }
 \description{
 This function implements a forest of graded response model trees (GRM Forest)
 using bootstrap aggregation (bagging) or random subsampling to enhance the
-detection and analysis of differential item functioning (DIF) in polytomous items.
-The GRM Forest approach combines the strengths of multiple GRMTrees to provide
-more robust and stable DIF detection, particularly for complex datasets with
-high-dimensional covariates or subtle DIF patterns.
+detection and analysis of differential item functioning (DIF) in polytomous
+items. The GRM Forest approach combines the strengths of multiple GRMTrees to
+provide more robust and stable DIF detection, particularly for complex
+datasets with high-dimensional covariates or subtle DIF patterns.
 }
 \details{
-The algorithm works by fitting multiple GRMTrees, each on a random sample of
-the original data (either through bootstrap sampling or subsampling). For each
-tree, approximately one-third of the observations are left out as out-of-bag
-(OOB) samples, which are used for internal validation and variable importance
-calculation. The ensemble approach reduces variance, minimizes overfitting,
-and provides more reliable identification of covariates associated with DIF.
+Each tree is grown by \code{\link[=grmtree]{grmtree()}} on a resample of the rows of \code{data}. Rows
+not selected form that tree's out-of-bag (OOB) sample, which is used by
+\code{\link[=varimp]{varimp()}} and never enters that tree's fitting.
+
+Setting \code{mtry} in \code{\link[=grmforest.control]{grmforest.control()}} offers a fresh random subset of
+partitioning variables at every node, decorrelating the trees. Leaving
+\code{mtry = NULL} grows a bagged ensemble in which every tree sees every
+variable at every node; such trees are highly correlated, which limits the
+variance reduction the ensemble can deliver and can make importance scores
+harder to interpret when partitioning variables are themselves correlated.
+
+Out-of-bag membership is stored as row indices rather than as copies of the
+data, which keeps the fitted object small and lets forests grown separately
+be combined with \code{\link[=c.grmforest]{c.grmforest()}}.
 
 Key advantages of the GRM Forest approach include:
 \itemize{
@@ -55,6 +71,17 @@ The forest implementation supports both bootstrap aggregation (where samples
 are drawn with replacement) and subsampling (without replacement), allowing
 flexibility for different data characteristics and research objectives.
 }
+\section{Computational cost}{
+
+Model-based recursive partitioning selects each split point by refitting the
+node model at every admissible cut point on the selected variable. For
+continuous covariates with many distinct values this dominates run time, and
+cost grows with the number of items and response categories. Practical
+levers, roughly in order of effect: bin continuous partitioning variables to
+a manageable number of candidate cut points before fitting; raise
+\code{minbucket}; set \code{mtry}; and increase \code{n_cores}.
+}
+
 \examples{
 
 \donttest{
@@ -76,6 +103,7 @@ flexibility for different data characteristics and research objectives.
 \code{\link{grmtree}} fits a Graded Response Model Tree,
 \code{\link{grmtree.control}} creates a control object for \code{grmtree},
 \code{\link{grmforest.control}} creates a control object for \code{grmforest},
+\code{\link{c.grmforest}} combines grmforest objects,
 \code{\link{varimp}} calculates the variable importance for GRM Forest,
 \code{\link{plot.varimp}} creates a bar plot of variable importance scores
 }

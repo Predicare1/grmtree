@@ -2,28 +2,80 @@
 % Please edit documentation in R/grmforest-varimp-final.R
 \name{varimp}
 \alias{varimp}
-\title{Calculate Variable Importance for GRM Forest}
+\title{Permutation Variable Importance for a GRM Forest}
 \usage{
-varimp(forest, method = "permutation", verbose = FALSE, seed = NULL)
+varimp(
+  forest,
+  method = "permutation",
+  nperm = 1L,
+  quadpts = 61L,
+  verbose = FALSE,
+  seed = NULL,
+  n_cores = 1L
+)
 }
 \arguments{
-\item{forest}{A \code{grmforest} object created by \code{grmforest()}.}
+\item{forest}{A \code{grmforest} object from \code{\link[=grmforest]{grmforest()}}.}
 
-\item{method}{Importance calculation method (currently only "permutation").}
+\item{method}{Importance type. Currently only \code{"permutation"}.}
 
-\item{verbose}{Logical indicating whether to show progress messages.}
+\item{nperm}{Number of permutations averaged per variable per tree
+(default: 1). Values of 3--10 reduce Monte Carlo noise at proportional
+cost.}
 
-\item{seed}{Random seed for reproducibility.}
+\item{quadpts}{Number of quadrature points used to integrate the latent
+trait out of the likelihood (default: 61).}
+
+\item{verbose}{Logical. Report progress (default: \code{FALSE}).}
+
+\item{seed}{Random seed for the permutations (default: \code{NULL}).}
+
+\item{n_cores}{Number of cores used to evaluate trees in parallel
+(default: 1). As in \code{\link[=grmforest]{grmforest()}}, all permutation draws are generated in
+the master process first, so results are independent of \code{n_cores}.}
 }
 \value{
-A named numeric vector of importance scores with class \code{varimp}.
-Higher values indicate more important variables.
+A named numeric vector of class \code{varimp}, sorted decreasing. Values
+are on the log-likelihood scale: larger means the variable matters more.
+Values near zero mean the variable carries no information about item
+parameter instability; small negative values are ordinary sampling noise
+around zero.
 }
 \description{
-Computes permutation importance scores for variables in a GRM forest using
-out-of-bag samples. Importance is measured by the decrease in log-likelihood
-when a variable's values are permuted.
+Quantifies how much each partitioning variable contributes to detected
+differential item functioning, by measuring the loss in out-of-bag marginal
+log-likelihood when that variable's values are randomly permuted.
 }
+\details{
+For each tree, the out-of-bag rows are passed down the tree and each
+respondent is scored under the graded response model held in the terminal
+node they land in. The score is the \strong{marginal} log-likelihood, integrating
+the latent trait against a standard normal:
+\deqn{\ell = \sum_i \log \int \prod_j P(Y_{ij} = y_{ij} \mid \theta)
+  \phi(\theta) \, d\theta}
+evaluated by quadrature. The variable is then permuted within the
+out-of-bag rows, respondents are re-routed through the tree, and the
+likelihood is recomputed. Importance is the mean across trees of the
+\strong{paired} difference (baseline minus permuted) for that tree, which has the
+same expectation as differencing two separate averages but lower variance
+and no sensitivity to which trees happen to be usable.
+
+Category probabilities are obtained from \code{\link[mirt:probtrace]{mirt::probtrace()}} rather than
+reconstructed from coefficients, so the correct parameterization is applied
+for whatever was fitted.
+}
+\section{Sparse response categories}{
+
+In large instruments some items may have categories that are empty within a
+particular terminal node, in which case \code{mirt} collapses them and the node
+model's category count no longer matches the full dataset. Such items are
+skipped for that node, with a single note at the end reporting how many were
+affected. Because importance uses paired within-tree differences, this
+reduces precision but does not bias the result. Persistent notes are a
+signal to collapse sparse categories deliberately before fitting, or to
+raise \code{minbucket}.
+}
+
 \examples{
 \donttest{
 library(grmtree)
@@ -33,8 +85,9 @@ asti$resp <- data.matrix(asti[, 1:4])
 
 ## Fit the GRM Forest
 forest <- grmforest(resp ~ gender + group, data = asti,
-control = grmforest.control(n_tree = 5))
-  importance <- varimp(forest)
+control = grmforest.control(n_tree = 10, seed = 123))
+
+importance <- varimp(forest, seed = 123)
 
 ## Print and plot the variable importance scores
 print(importance)

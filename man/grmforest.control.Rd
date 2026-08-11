@@ -2,67 +2,84 @@
 % Please edit documentation in R/grmforest-control.R
 \name{grmforest.control}
 \alias{grmforest.control}
-\title{Control Parameters for GRM Forest}
+\title{Control Parameters for GRM Forests}
 \usage{
 grmforest.control(
   n_tree = 100,
-  sampling = "bootstrap",
-  sample_fraction = 0.632,
+  sampling = c("subsample", "bootstrap"),
+  sample_fraction = NULL,
   mtry = NULL,
   remove_dead_trees = TRUE,
   control = grmtree.control(),
-  alpha = 0.05,
-  minbucket = 20,
-  seed = NULL
+  n_cores = 1,
+  seed = NULL,
+  verbose = FALSE
 )
 }
 \arguments{
 \item{n_tree}{Number of trees in the forest (default: 100).}
 
-\item{sampling}{Sampling method: "bootstrap" (with replacement) or
-"subsample" (without replacement) (default: "bootstrap").}
+\item{sampling}{Resampling scheme for each tree: \code{"bootstrap"} (drawn with
+replacement) or \code{"subsample"} (drawn without replacement). Default
+\code{"subsample"}.}
 
-\item{sample_fraction}{Fraction of data to sample for each tree (default:
-0.632).}
+\item{sample_fraction}{Fraction of the original sample drawn for each tree.
+If \code{NULL} (the default) this is set to \code{1} for bootstrap sampling and
+\code{0.632} for subsampling, following Strobl et al. (2007).}
 
-\item{mtry}{Number of variables randomly sampled as candidates at each split.
-If NULL, all variables are considered (default: NULL).}
+\item{mtry}{Number of partitioning variables randomly offered as split
+candidates at each node. \code{NULL} (default) offers all variables, which
+grows a bagged ensemble rather than a random forest. A common choice is
+\code{ceiling(sqrt(p))} for \code{p} partitioning variables.}
 
-\item{remove_dead_trees}{Logical indicating whether to remove trees that
-encounter errors during fitting (default: TRUE).}
+\item{remove_dead_trees}{Logical. If \code{TRUE} (default), trees that fail to
+fit are dropped with a warning; if \code{FALSE}, a failure aborts the forest.}
 
-\item{control}{Control parameters for individual trees created by
-\code{grmtree.control()}.}
+\item{control}{Control parameters for the individual trees, created by
+\code{\link[=grmtree.control]{grmtree.control()}}.}
 
-\item{alpha}{Significance level for splitting (default: 0.05).}
+\item{n_cores}{Number of processor cores used to fit trees in parallel
+(default: 1). Results do \strong{not} depend on this value: all resampling
+indices are drawn in the master process before any fitting begins, so a
+forest grown on 20 cores is identical to the same forest grown on one.}
 
-\item{minbucket}{Minimum number of observations in terminal nodes (default:
-20).}
+\item{seed}{Random seed for reproducibility (default: \code{NULL}).}
 
-\item{seed}{Random seed for reproducibility (default: NULL).}
+\item{verbose}{Logical. Report progress while growing the forest
+(default: \code{FALSE}).}
 }
 \value{
-A list of class \code{grmforest_control} containing: \item{n_tree}{Number
-of trees} \item{sampling}{Sampling method} \item{sample_fraction}{Sample
-fraction} \item{mtry}{Number of variables to try at each split}
-\item{remove_dead_trees}{Whether to remove failed trees}
-\item{control}{Tree control parameters} \item{seed}{Random seed}
+A list of class \code{grmforest_control}.
 }
 \description{
-Creates a control object for \code{grmforest} containing parameters that control
-the forest growing process including sampling, tree growing, and error
-handling.
+Creates a control object governing how a forest of graded response model
+trees is grown: how observations are resampled for each tree, how many
+partitioning variables are offered at each split, how failures are handled,
+and how the work is distributed across processor cores.
 }
+\section{Reproducibility and parallelism}{
+
+Naive parallelisation of a tree ensemble can silently change results,
+because each worker inherits or advances the random number stream
+differently; in the worst case several workers draw identical resamples and
+the ensemble carries far less variance than it appears to. This
+implementation avoids the problem structurally: the full list of \code{n_tree}
+resampling index vectors is generated serially under \code{seed} before any tree
+is fitted, and tree fitting is a deterministic function of those indices.
+\code{n_cores} therefore affects only elapsed time.
+}
+
 \examples{
-library(grmtree)
-# Control with 50 trees using subsampling
-ctrl <- grmforest.control(n_tree = 50, sampling = "subsample")
+# Bagged ensemble of 50 trees
+ctrl <- grmforest.control(n_tree = 50)
 
-# Control with specific tree parameters
-ctrl <- grmforest.control(
-  control = grmtree.control(minbucket = 30, alpha = 0.01)
-)
+# Random-forest style, 4 candidate variables per split, 4 cores
+ctrl <- grmforest.control(n_tree = 100, mtry = 4, n_cores = 4, seed = 123)
 
+}
+\references{
+Strobl, C., Boulesteix, A.-L., Zeileis, A., & Hothorn, T. (2007). Bias in
+random forest variable importance measures. \emph{BMC Bioinformatics}, 8, 25.
 }
 \seealso{
 \code{\link{grmtree.control}} creates a control object for

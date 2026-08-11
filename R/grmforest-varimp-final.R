@@ -1,16 +1,55 @@
-#' Calculate Variable Importance for GRM Forest
+#' Permutation Variable Importance for a GRM Forest
 #'
-#' Computes permutation importance scores for variables in a GRM forest using
-#' out-of-bag samples. Importance is measured by the decrease in log-likelihood
-#' when a variable's values are permuted.
+#' Quantifies how much each partitioning variable contributes to detected
+#' differential item functioning, by measuring the loss in out-of-bag marginal
+#' log-likelihood when that variable's values are randomly permuted.
 #'
-#' @param forest A `grmforest` object created by `grmforest()`.
-#' @param method Importance calculation method (currently only "permutation").
-#' @param verbose Logical indicating whether to show progress messages.
-#' @param seed Random seed for reproducibility.
+#' @param forest A `grmforest` object from [grmforest()].
+#' @param method Importance type. Currently only `"permutation"`.
+#' @param nperm Number of permutations averaged per variable per tree
+#'   (default: 1). Values of 3--10 reduce Monte Carlo noise at proportional
+#'   cost.
+#' @param quadpts Number of quadrature points used to integrate the latent
+#'   trait out of the likelihood (default: 61).
+#' @param verbose Logical. Report progress (default: `FALSE`).
+#' @param seed Random seed for the permutations (default: `NULL`).
+#' @param n_cores Number of cores used to evaluate trees in parallel
+#'   (default: 1). As in [grmforest()], all permutation draws are generated in
+#'   the master process first, so results are independent of `n_cores`.
 #'
-#' @return A named numeric vector of importance scores with class `varimp`.
-#'   Higher values indicate more important variables.
+#' @return A named numeric vector of class `varimp`, sorted decreasing. Values
+#'   are on the log-likelihood scale: larger means the variable matters more.
+#'   Values near zero mean the variable carries no information about item
+#'   parameter instability; small negative values are ordinary sampling noise
+#'   around zero.
+#'
+#' @details
+#' For each tree, the out-of-bag rows are passed down the tree and each
+#' respondent is scored under the graded response model held in the terminal
+#' node they land in. The score is the **marginal** log-likelihood, integrating
+#' the latent trait against a standard normal:
+#' \deqn{\ell = \sum_i \log \int \prod_j P(Y_{ij} = y_{ij} \mid \theta)
+#'   \phi(\theta) \, d\theta}
+#' evaluated by quadrature. The variable is then permuted within the
+#' out-of-bag rows, respondents are re-routed through the tree, and the
+#' likelihood is recomputed. Importance is the mean across trees of the
+#' **paired** difference (baseline minus permuted) for that tree, which has the
+#' same expectation as differencing two separate averages but lower variance
+#' and no sensitivity to which trees happen to be usable.
+#'
+#' Category probabilities are obtained from [mirt::probtrace()] rather than
+#' reconstructed from coefficients, so the correct parameterization is applied
+#' for whatever was fitted.
+#'
+#' @section Sparse response categories:
+#' In large instruments some items may have categories that are empty within a
+#' particular terminal node, in which case `mirt` collapses them and the node
+#' model's category count no longer matches the full dataset. Such items are
+#' skipped for that node, with a single note at the end reporting how many were
+#' affected. Because importance uses paired within-tree differences, this
+#' reduces precision but does not bias the result. Persistent notes are a
+#' signal to collapse sparse categories deliberately before fitting, or to
+#' raise `minbucket`.
 #'
 #' @examples
 #' \donttest{
@@ -21,8 +60,9 @@
 #'
 #' ## Fit the GRM Forest
 #' forest <- grmforest(resp ~ gender + group, data = asti,
-#' control = grmforest.control(n_tree = 5))
-#'   importance <- varimp(forest)
+#' control = grmforest.control(n_tree = 10, seed = 123))
+#'
+#' importance <- varimp(forest, seed = 123)
 #'
 #' ## Print and plot the variable importance scores
 #' print(importance)
@@ -36,203 +76,128 @@
 #'
 #' @export
 #' @importFrom stats predict
-varimp <- function(forest, method = "permutation", verbose = FALSE, seed = NULL) {
-  # Validate inputs
+varimp <- function(forest, method = "permutation", nperm = 1L, quadpts = 61L,
+                   verbose = FALSE, seed = NULL, n_cores = 1L) {
+
   if (!inherits(forest, "grmforest")) {
     stop("'forest' must be a grmforest object created by grmforest()")
   }
-
   if (method != "permutation") {
     stop("Only permutation importance is implemented")
   }
+  if (!is.numeric(nperm) || nperm < 1) stop("'nperm' must be a positive integer")
+  nperm <- as.integer(nperm)
 
+  ## Backward compatibility with forests saved before oob_indices existed
+  if (is.null(forest$oob_indices)) {
+    stop("This forest was created by an older version of grmforest() and ",
+         "stores out-of-bag data rather than indices. Refit the forest, or ",
+         "supply oob_indices manually.")
+  }
+
+  var_names <- all.vars(forest$formula[[3L]])
+  if (length(var_names) == 0L) stop("No partitioning variables found in formula")
+
+  ## Canonical response coding, from the full data
+  full <- .grm_eval_frame(forest$formula, forest$data)
+  levels_list <- .grm_levels(full$y)
+  quad <- .grm_quad(quadpts)
+
+  ## All permutation orderings are drawn up front, so n_cores is irrelevant
   if (!is.null(seed)) set.seed(seed)
+  ntree <- length(forest$trees)
+  perm_orders <- lapply(seq_len(ntree), function(i) {
+    n_oob <- length(forest$oob_indices[[i]])
+    lapply(var_names, function(v) {
+      replicate(nperm, sample.int(max(n_oob, 1L)), simplify = FALSE)
+    })
+  })
 
+  skipped <- new.env(parent = emptyenv())
+  skipped$items <- integer(0)
 
-  # Get variable names from formula
-  var_names <- all.vars(forest$formula)[-1]
-  if (length(var_names) == 0) {
-    stop("No predictor variables found in formula")
-  }
-
-  importance_scores <- numeric(length(var_names))
-  names(importance_scores) <- var_names
-
-  # Compute baseline performance
-  baseline_perf <- evaluate_forest(forest, verbose)
-  if (verbose) {
-    message("Baseline OOB performance: ", baseline_perf)
-    message("Using ", length(forest$trees), " trees")
-  }
-
-  # Calculate importance for each variable
-  for (var in var_names) {
-    if (verbose) message("\nProcessing variable: ", var)
-
-    permuted_perf <- 0
-    valid_trees <- 0
-
-    for (i in seq_along(forest$trees)) {
-      tree <- forest$trees[[i]]
-      oob_data <- forest$oob_samples[[i]]
-
-      # Skip invalid trees or OOB data
-      if (is.null(tree) || is.null(oob_data) || nrow(oob_data) == 0) {
-        if (verbose) message("Skipping tree ", i, " - no valid OOB data")
-        next
-      }
-
-      # Create permuted copy
-      permuted_data <- oob_data
-      permuted_data[[var]] <- sample(permuted_data[[var]])
-
-      # Evaluate permutation
-      tree_perf <- evaluate_tree(tree, permuted_data, verbose)
-      if (!is.na(tree_perf)) {
-        permuted_perf <- permuted_perf + tree_perf
-        valid_trees <- valid_trees + 1
-        if (verbose) message("Tree ", i, " perf: ", tree_perf)
-      }
-    }
-
-    # Calculate importance score
-    if (valid_trees > 0) {
-      importance_scores[var] <- baseline_perf - (permuted_perf / valid_trees)
-      if (verbose) {
-        message("Variable: ", var,
-                " | Importance: ", importance_scores[var],
-                " (based on ", valid_trees, " trees)")
-      }
-    } else {
-      warning("No valid trees for variable '", var, "' - importance set to 0")
-      importance_scores[var] <- 0
-    }
-  }
-
-  if (valid_trees == 0) {
-    warning("No valid trees with OOB data available")
-    importance_scores <- numeric(length(var_names))
-    names(importance_scores) <- var_names
-    class(importance_scores) <- c("varimp", "numeric")
-    return(importance_scores)  # Return properly structured zero vector
-  }
-
-  # Sort by importance
-  importance_scores <- sort(importance_scores, decreasing = TRUE)
-  class(importance_scores) <- c("varimp", "numeric")
-
-  return(importance_scores)
-}
-
-# Internal helper functions --------------------------------------------------
-
-evaluate_forest <- function(forest, verbose = FALSE) {
-  total_perf <- 0
-  valid_trees <- 0
-
-  for (i in seq_along(forest$trees)) {
+  eval_tree <- function(i) {
     tree <- forest$trees[[i]]
-    oob_data <- forest$oob_samples[[i]]
-
-    if (!is.null(tree) && !is.null(oob_data) && nrow(oob_data) > 0) {
-      tree_perf <- evaluate_tree(tree, oob_data, verbose)
-      if (!is.na(tree_perf)) {
-        total_perf <- total_perf + tree_perf
-        valid_trees <- valid_trees + 1
-        if (verbose) message("Tree ", i, " baseline perf: ", tree_perf)
-      }
+    oob  <- forest$oob_indices[[i]]
+    if (is.null(tree) || length(oob) == 0L) {
+      return(c(baseline = NA_real_,
+               stats::setNames(rep(NA_real_, length(var_names)), var_names)))
     }
+    oob_data <- forest$data[oob, , drop = FALSE]
+
+    base_ll <- .grm_tree_loglik(tree, forest$formula, oob_data,
+                                levels_list, quad, skipped)
+    if (!is.finite(base_ll)) {
+      return(c(baseline = NA_real_,
+               stats::setNames(rep(NA_real_, length(var_names)), var_names)))
+    }
+
+    drops <- vapply(seq_along(var_names), function(vi) {
+      v <- var_names[vi]
+      if (!v %in% names(oob_data)) return(NA_real_)
+      lls <- vapply(seq_len(nperm), function(p) {
+        pd <- oob_data
+        ord <- perm_orders[[i]][[vi]][[p]]
+        ord <- ord[ord <= nrow(pd)]
+        pd[[v]] <- pd[[v]][ord]
+        .grm_tree_loglik(tree, forest$formula, pd, levels_list, quad, skipped)
+      }, numeric(1L))
+      base_ll - mean(lls, na.rm = TRUE)
+    }, numeric(1L))
+
+    c(baseline = base_ll, stats::setNames(drops, var_names))
   }
 
-  if (valid_trees == 0) {
-    warning("No valid trees with OOB data available")
-    return(0)
+  if (verbose) message("Evaluating ", ntree, " trees ...")
+  res <- .grm_lapply(seq_len(ntree), eval_tree, n_cores = n_cores,
+                     export = c(".grm_tree_loglik", ".grm_node_loglik",
+                                ".grm_eval_frame", ".grm_levels",
+                                ".row_logsumexp", ".grm_quad"),
+                     export_env = environment())
+  res <- do.call(rbind, res)
+
+  importance <- colMeans(res[, var_names, drop = FALSE], na.rm = TRUE)
+  importance[is.nan(importance)] <- 0
+
+  n_used <- sum(is.finite(res[, "baseline"]))
+  if (n_used == 0L) {
+    warning("No trees produced a usable out-of-bag likelihood; ",
+            "all importance scores set to 0")
+    importance[] <- 0
+  } else if (verbose) {
+    message("Mean out-of-bag log-likelihood: ",
+            format(mean(res[, "baseline"], na.rm = TRUE)),
+            " (", n_used, " of ", ntree, " trees)")
   }
 
-  return(total_perf / valid_trees)
+  if (length(skipped$items) > 0L) {
+    message(length(skipped$items), " item(s) were skipped in at least one ",
+            "terminal node because the node model had fewer response ",
+            "categories than the full data (sparse categories). Consider ",
+            "collapsing rare categories before fitting, or raising minbucket.")
+  }
+
+  importance <- sort(importance, decreasing = TRUE)
+  attr(importance, "n_tree") <- ntree
+  attr(importance, "baseline") <- mean(res[, "baseline"], na.rm = TRUE)
+  class(importance) <- c("varimp", "numeric")
+  importance
 }
 
-evaluate_tree <- function(tree, data, verbose = FALSE) {
-  if (is.null(tree) || nrow(data) == 0) return(NA_real_)
 
-  # Get terminal nodes
-  terminal_nodes <- tryCatch(
-    predict(tree, data, type = "node"),
-    error = function(e) {
-      if (verbose) warning("Prediction failed: ", e$message)
-      return(rep(1, nrow(data))) # Default to root node
-    }
-  )
-
-  loglik <- 0
-  for (node_id in unique(terminal_nodes)) {
-    node_data <- data[terminal_nodes == node_id, , drop = FALSE]
-    if (nrow(node_data) > 0) {
-      node_model <- tryCatch(
-        get_node_model(tree, node_id),
-        error = function(e) {
-          if (verbose) warning("Node model error: ", e$message)
-          NULL
-        }
-      )
-
-      if (!is.null(node_model)) {
-        node_loglik <- calculate_node_loglik(node_model, node_data)
-        loglik <- loglik + node_loglik
-      }
-    }
+#' Print Method for Variable Importance
+#'
+#' @param x A `varimp` object.
+#' @param ... Currently unused.
+#' @return Invisibly returns `x`.
+#' @export
+print.varimp <- function(x, ...) {
+  cat("GRM Forest variable importance (permutation)\n")
+  if (!is.null(attr(x, "n_tree"))) {
+    cat("  Trees:", attr(x, "n_tree"),
+        " Mean OOB log-likelihood:", format(attr(x, "baseline"), digits = 6), "\n")
   }
-
-  return(loglik)
-}
-
-calculate_node_loglik <- function(grm_model, data) {
-  # Extract response matrix - assumes response is in a matrix column called 'resp'
-  y <- as.matrix(data$resp)
-  if (is.null(y)) stop("Response matrix 'resp' not found in data")
-
-  # Get item parameters
-  item_params <- tryCatch(
-    mirt::coef(grm_model, simplify = TRUE)$items,
-    error = function(e) stop("Failed to get item parameters: ", e$message)
-  )
-
-  loglik <- 0
-  for (i in seq_len(nrow(y))) {
-    for (j in seq_len(ncol(y))) {
-      response <- y[i, j]
-      if (is.na(response)) next
-
-      a <- item_params[j, "a1"]
-      d <- item_params[j, grep("d", colnames(item_params))]
-
-      # Calculate response probability
-      if (response == 1) {
-        prob <- stats::plogis(a * (0 - d[1]))
-      } else if (response == length(d) + 1) {
-        prob <- 1 - stats::plogis(a * (0 - d[length(d)]))
-      } else {
-        prob <- stats::plogis(a * (0 - d[response])) - stats::plogis(a * (0 - d[response - 1]))
-      }
-
-      # Avoid log(0)
-      prob <- pmax(prob, .Machine$double.eps)
-      loglik <- loglik + log(prob)
-    }
-  }
-
-  return(loglik)
-}
-
-get_node_model <- function(tree, node_id) {
-  node <- tryCatch(
-    partykit::nodeapply(tree, ids = node_id, FUN = function(x) x)[[1]],
-    error = function(e) stop("Failed to get node: ", e$message)
-  )
-
-  if (is.null(node$info$object)) {
-    stop("No model found in node ", node_id)
-  }
-
-  return(node$info$object)
+  cat("\n")
+  print(round(unclass(x), 3L))
+  invisible(x)
 }

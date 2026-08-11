@@ -1,3 +1,27 @@
+# grmtree 0.2.1
+
+## Bug fixes
+
+* `grmforest()` now runs reliably in parallel (`n_cores > 1`) on all platforms,
+  including PSOCK/Windows workers, and results are identical regardless of the
+  number of cores. Out-of-bag membership is stored as row indices, and forests
+  can be grown in chunks and combined with `c()`.
+* `grmforest()` coerces character partitioning variables to factors, avoiding
+  tree failures on such covariates.
+* `varimp()` now scores out-of-bag respondents with the marginal (latent-
+  integrated) log-likelihood using the correct GRM parameterization, and
+  averages paired within-tree permutation differences.
+* `grmfit()` no longer computes standard errors during fitting, which removes a
+  `chol()` failure on hard resamples and speeds up tree/forest construction;
+  results are unchanged.
+
+## Improvements
+* `varimp()` scores out-of-bag respondents with the marginal (latent-integrated)
+  log-likelihood and averages paired within-tree permutation differences;
+  out-of-bag membership is stored as row indices and forests can be combined
+  with `c()`.
+  
+  
 # grmtree 0.2.0 (2026)
 
 ## New features

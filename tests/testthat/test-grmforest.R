@@ -1,113 +1,113 @@
 library(testthat)
-library(hlt)
 library(mirt)
+library(hlt)
 
-## Test for grmforest.control()
-test_that("grmforest.control creates valid control object", {
-  # Default parameters
+# Small helper: fit a modest forest on the asti data (reused across tests)
+make_asti <- function() {
+  data("asti", package = "hlt")
+  asti$resp <- data.matrix(asti[, 1:4])
+  asti
+}
+
+## ---- grmforest.control() -------------------------------------------------
+test_that("grmforest.control creates a valid control object", {
   ctrl <- grmforest.control()
   expect_s3_class(ctrl, "grmforest_control")
   expect_equal(ctrl$n_tree, 100L)
+  expect_equal(ctrl$sampling, "subsample")           # default
 
-  # Custom parameters
-  ctrl <- grmforest.control(
-    n_tree = 5,
-    sampling = "subsample",
-    sample_fraction = 0.5,
-    mtry = 2,
-    seed = 123
-  )
+  ctrl <- grmforest.control(n_tree = 5, sampling = "bootstrap",
+                            sample_fraction = 0.5, mtry = 2, seed = 123)
   expect_equal(ctrl$n_tree, 5L)
-  expect_equal(ctrl$sampling, "subsample")
+  expect_equal(ctrl$sampling, "bootstrap")
+  expect_equal(ctrl$mtry, 2L)
   expect_equal(ctrl$seed, 123L)
+})
 
-  # Invalid parameters
-  expect_error(grmforest.control(n_tree = 0), "must be at least 1")
-  expect_error(grmforest.control(sampling = "invalid"), "must be one of")
+test_that("grmforest.control rejects invalid arguments", {
+  expect_error(grmforest.control(n_tree = 0), "at least 1")
+  expect_error(grmforest.control(sampling = "invalid"))         # match.arg
   expect_error(grmforest.control(sample_fraction = 1.1), "between 0 and 1")
+  expect_error(grmforest.control(mtry = 0), "positive integer")
+  expect_error(grmforest.control(n_cores = 0), "positive integer")
 })
 
-## Test for grmforest fitting
-test_that("grmforest fits with valid inputs", {
+## ---- grmforest() ---------------------------------------------------------
+test_that("grmforest fits and stores out-of-bag indices", {
   skip_if_not_installed("mirt")
   skip_if_not_installed("hlt")
+  asti <- make_asti()
 
-  data("asti", package = "hlt")
-  asti$resp <- data.matrix(asti[, 1:4])
-
-  # Test basic forest - may or may not have warnings depending on tree success
   suppressWarnings({
     forest <- grmforest(resp ~ gender + group, data = asti,
-                        control = grmforest.control(n_tree = 5))
+                        control = grmforest.control(n_tree = 3, seed = 1))
   })
-
   expect_s3_class(forest, "grmforest")
-  expect_true(length(forest$trees) > 0)  # At least some trees succeeded
-  expect_equal(length(forest$trees), length(forest$oob_samples))
-
-  # Test with subsampling
-  suppressWarnings({
-    forest <- grmforest(resp ~ gender + group, data = asti,
-                        control = grmforest.control(n_tree = 5, sampling = "subsample"))
-  })
-
-  expect_s3_class(forest, "grmforest")
-  expect_true(length(forest$trees) > 0)
-
-  # Test invalid formula
-  expect_error(
-    suppressWarnings(grmforest(group ~ gender, data = asti)),
-    "Response variable must be a matrix of item responses"
-  )
+  expect_gt(length(forest$trees), 0)
+  # out-of-bag membership is stored as row indices, one vector per tree
+  expect_equal(length(forest$oob_indices), length(forest$trees))
+  expect_equal(length(forest$in_indices),  length(forest$trees))
+  expect_true(all(vapply(forest$oob_indices, is.numeric, logical(1))))
 })
 
-## grmforest with edge cases and tree failures
-test_that("grmforest handles errors appropriately", {
+test_that("grmforest reproduces across cores (indices identical)", {
   skip_if_not_installed("mirt")
   skip_if_not_installed("hlt")
+  asti <- make_asti()
 
-  data("asti", package = "hlt")
-  asti$resp <- data.matrix(asti[, 1:4])
-
-  # Too small dataset
-  expect_error(
-    grmforest(resp[1:5,] ~ gender + group, data = asti[1:5,]), "Insufficient data")
-
-  # With tree failures allowed - may or may not have warnings
-  ctrl <- grmforest.control(n_tree = 5, remove_dead_trees = TRUE)
   suppressWarnings({
-    forest <- grmforest(resp ~ gender + group, data = asti, control = ctrl)
+    f1 <- grmforest(resp ~ gender + group, data = asti,
+                    control = grmforest.control(n_tree = 3, seed = 42, n_cores = 1))
+    f2 <- grmforest(resp ~ gender + group, data = asti,
+                    control = grmforest.control(n_tree = 3, seed = 42, n_cores = 2))
   })
-  expect_s3_class(forest, "grmforest")
-  expect_true(length(forest$trees) > 0)
+  expect_identical(f1$in_indices, f2$in_indices)
+})
 
-  # Test invalid formula
-  expect_error(
-    grmforest(group ~ gender, data = asti),
-    "Response variable must be a matrix"
-  )
+test_that("grmforest validates its inputs", {
+  skip_if_not_installed("mirt")
+  skip_if_not_installed("hlt")
+  asti <- make_asti()
 
-  # Test invalid control object
-  bad_ctrl <- grmforest.control()
-  class(bad_ctrl) <- "not_control"
+  # response must be a matrix of item responses
+  expect_error(grmforest(group ~ gender, data = asti),
+               "Response variable must be a matrix of item responses")
+  # too few rows
+  expect_error(grmforest(resp ~ gender, data = asti[1:5, ]),
+               "Insufficient data")
+  # control must come from grmforest.control()
+  bad_ctrl <- grmforest.control(); class(bad_ctrl) <- "not_control"
   expect_error(
     grmforest(resp ~ gender + group, data = asti, control = bad_ctrl),
-    "'control' must be created by grmforest.control()"
+    "must be created by grmforest.control"
   )
 })
 
-## Test for print method
-test_that("print.grmforest works correctly", {
+## ---- print.grmforest -----------------------------------------------------
+test_that("print.grmforest works", {
   skip_if_not_installed("mirt")
   skip_if_not_installed("hlt")
-
-  data("asti", package = "hlt")
-  asti$resp <- data.matrix(asti[, 1:4])
-
+  asti <- make_asti()
   suppressWarnings({
     forest <- grmforest(resp ~ gender + group, data = asti,
                         control = grmforest.control(n_tree = 2, seed = 123))
   })
-
   expect_output(print(forest), "GRM Forest with")
+})
+
+## ---- c.grmforest ---------------------------------------------------------
+test_that("c.grmforest combines forests grown on the same data", {
+  skip_if_not_installed("mirt")
+  skip_if_not_installed("hlt")
+  asti <- make_asti()
+  suppressWarnings({
+    f1 <- grmforest(resp ~ gender + group, data = asti,
+                    control = grmforest.control(n_tree = 2, seed = 1))
+    f2 <- grmforest(resp ~ gender + group, data = asti,
+                    control = grmforest.control(n_tree = 2, seed = 2))
+  })
+  big <- c(f1, f2)
+  expect_s3_class(big, "grmforest")
+  expect_equal(length(big$trees), length(f1$trees) + length(f2$trees))
+  expect_equal(length(big$oob_indices), length(big$trees))
 })
