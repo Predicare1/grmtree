@@ -20,6 +20,13 @@ GRM Forest functions. No user-facing API changes.
   standard errors.
 * Adjust `longitudinal_grmtree()` to restrict the split test to ITEM parameters 
   (measurement invariance) and not include the structural parameters.
+* Corrected item-level testing in `rs_characterize()`. Item-level response-shift
+  tests now run only in nodes whose omnibus test is significant after the
+  across-node adjustment (`RS_detected`), rather than the unadjusted p-value.
+  Shift type (recalibration / reprioritization / both) is now determined from the
+  estimated item-parameter changes rather than an effect-size cut-point, so a
+  significant item always receives a shift type; the magnitude is reported
+  separately.
 * Corrected the response-shift plots `plot_rs_tree()` and `plot_rs_heatmap()`:
   p-values now display in fixed notation, latent-parameter and legend labels
   are spelled out, and the RS-type legend is limited to the four shift

@@ -191,8 +191,7 @@ Node 3 (n = 903):
 
 --- Item-Level RS Testing ---
 Node 3:
-  Item  2: chi2 =  50.670, df = 5, p_adj = 0.000000  Reprioritization  ***
-  Item  5: chi2 =  19.626, df = 5, p_adj = 0.003915  Significant (small effect) ***
+  Item  2: chi2 =  50.670, df = 5, p_adj = 0.000000  Reprioritization   [large] ***
   Item  6: chi2 = 383.014, df = 5, p_adj = 0.000000  Recalibration     ***
 ```
 

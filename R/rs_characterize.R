@@ -2,17 +2,21 @@
 ##
 ## rs_characterize(): Post-hoc Response Shift Characterization
 ##
-## After fitting longitudinal_grmtree(), this function tests for actual
-## response shift WITHIN each terminal node by comparing the constrained
-## model (item parameters equal across time) to an unconstrained model
-## (item parameters free across time).
+## After fitting longitudinal_grmtree() (Phase 1), this function tests for actual
+## response shift WITHIN each terminal node by comparing the constrained model
+## (item parameters equal across time) to an unconstrained model (item parameters
+## free across time).
 ##
-## The tree splits identify subgroups with DIFFERENT measurement models
-## (analogous to DIF). This function then asks: within each subgroup,
-## do item parameters CHANGE over time (i.e., response shift)?
+## Design (v2):
+##   * Item-level testing runs ONLY in nodes whose omnibus RS survives the
+##     across-node adjustment (RS_detected == TRUE), never on the raw p-value.
+##   * The TYPE of a flagged item (recalibration / reprioritization / both) is
+##     decided by nested likelihood-ratio tests on the parameter SETS -- NOT by
+##     an arbitrary magnitude cut-point. Magnitude is reported separately as an
+##     effect size. "None" therefore means "no statistically significant shift".
 ##
 ## Author: Olayinka Arimoro
-## Date: February 2026
+## Date: February 2026 (item-level redesign: 2026)
 ##
 ################################################################################
 
@@ -20,45 +24,52 @@
 #'
 #' After fitting a \code{\link{longitudinal_grmtree}} (Phase 1), this function
 #' performs Phase 2: post-hoc response shift (RS) characterization within each
-#' terminal node. For each subgroup identified by the tree, it compares the
+#' terminal node. For each subgroup identified by the tree it compares the
 #' constrained model (no RS: item parameters equal across time) to an
-#' unconstrained model (item parameters free across time) using likelihood
-#' ratio tests (LRTs), then identifies which specific items exhibit response
-#' shift and classifies the type of shift.
+#' unconstrained model (item parameters free across time) with a likelihood
+#' ratio test (LRT); then, \emph{only in nodes where the omnibus test survives
+#' the across-node adjustment}, it tests each item for RS and classifies the
+#' \emph{type} of shift by nested LRTs on the item's parameter sets.
 #'
 #' @param object A \code{longitudinal_grmtree} object fitted by
 #'   \code{\link{longitudinal_grmtree}}.
 #' @param node Optional integer vector of terminal node IDs to analyze. If
 #'   \code{NULL} (default), all terminal nodes are analyzed.
 #' @param item_level Logical. If \code{TRUE} (default), perform item-level RS
-#'   testing by sequentially freeing one item at a time from the constrained
-#'   model. Only performed for nodes where the omnibus test is significant.
-#' @param alpha Numeric significance level for RS tests. Default is 0.05.
-#'   Used for both omnibus and item-level significance decisions (after any
-#'   p-value adjustments).
-#' @param p_adjust Character string specifying the method for adjusting
-#'   item-level p-values \strong{within each node}. Controls the error rate
-#'   when testing multiple items for RS within a single subgroup. Options:
-#'   \code{"bonferroni"} (default), \code{"holm"}, \code{"BH"}
+#'   testing. It is performed \strong{only} for nodes whose omnibus RS is
+#'   detected \emph{after} \code{global_p_adjust} (i.e. \code{RS_detected ==
+#'   TRUE}); nodes that are not significant after adjustment are skipped
+#'   entirely, so no item rows are produced for them.
+#' @param alpha Numeric significance level for RS tests. Default \code{0.05}.
+#'   Used for the omnibus decision (after \code{global_p_adjust}), the item
+#'   detection decision (after \code{p_adjust}), and the component tests that
+#'   assign the RS type.
+#' @param p_adjust Character string specifying the method for adjusting the
+#'   \strong{item detection} p-values \strong{within each node}. Controls the
+#'   error rate when testing multiple items for RS within a single subgroup.
+#'   Options: \code{"bonferroni"} (default), \code{"holm"}, \code{"BH"}
 #'   (Benjamini-Hochberg), \code{"BY"}, \code{"fdr"}, \code{"hochberg"},
-#'   \code{"hommel"}, or \code{"none"}. See \code{\link[stats]{p.adjust}}.
+#'   \code{"hommel"}, or \code{"none"}. See \code{\link[stats]{p.adjust}}. FDR
+#'   is recommended for the exploratory item search.
 #' @param global_p_adjust Character string specifying the method for adjusting
-#'   omnibus RS p-values \strong{across terminal nodes}. Controls the
-#'   family-wise error rate when testing RS in multiple subgroups. Options
-#'   are the same as \code{p_adjust}. Default is \code{"bonferroni"}.
-#'   The \code{RS_detected} column in the global results is updated based
-#'   on adjusted p-values. Only applied when there are 2 or more nodes.
-#' @param rs_threshold Numeric threshold for classifying the magnitude of
-#'   parameter change in RS type determination, on the IRT parameter scale.
-#'   Default is 0.3. A discrimination difference exceeding this threshold
-#'   indicates reprioritization; a maximum threshold difference exceeding
-#'   this indicates recalibration. Larger values produce more conservative
-#'   classifications (fewer items classified as showing meaningful RS).
-#'   Items that are statistically significant but below this threshold are
-#'   classified as \code{"Significant (small effect)"}.
+#'   the omnibus RS p-values \strong{across terminal nodes}. Controls the
+#'   family-wise error rate when testing RS in multiple subgroups. Options are
+#'   the same as \code{p_adjust}. Default \code{"bonferroni"}. The
+#'   \code{RS_detected} column is set from these adjusted p-values, and it is
+#'   \code{RS_detected} that gates item-level testing. Only applied when there
+#'   are two or more nodes.
+#' @param rs_threshold Numeric magnitude threshold on the IRT parameter scale,
+#'   used \strong{only for the descriptive effect-size annotation}
+#'   (\code{RS_magnitude}), \strong{not} for deciding the RS type. Default
+#'   \code{0.3}. A flagged item is annotated \code{"large"} when its larger
+#'   parameter change (max threshold shift or absolute discrimination change)
+#'   is at least \code{rs_threshold}, and \code{"small"} otherwise. The type
+#'   itself is always determined by the component LRTs (see Details), so the
+#'   choice of \code{rs_threshold} never changes which items are flagged or how
+#'   they are typed; it only affects the type label when both changes are
+#'   sub-threshold, and the \code{RS_magnitude} annotation.
 #' @param verbose Logical. If \code{TRUE} (default), print progress messages
-#'   including log-likelihoods, LRT statistics, and RS classifications for
-#'   each node during processing.
+#'   for each node during processing.
 #' @param ... Additional arguments passed to \code{\link[mirt]{mirt}} during
 #'   model fitting.
 #'
@@ -67,225 +78,186 @@
 #'     \item{\code{global}}{A \code{data.frame} with one row per terminal node
 #'       and columns:
 #'       \describe{
-#'         \item{\code{Node}}{Terminal node ID}
-#'         \item{\code{n}}{Sample size in the node}
+#'         \item{\code{Node}}{Terminal node ID.}
+#'         \item{\code{n}}{Sample size in the node.}
 #'         \item{\code{LL_constrained}}{Log-likelihood of the constrained
-#'           (no-RS) model}
+#'           (no-RS) model.}
 #'         \item{\code{LL_unconstrained}}{Log-likelihood of the unconstrained
-#'           (RS-allowed) model}
-#'         \item{\code{LRT_chi2}}{Likelihood ratio test statistic:
-#'           \eqn{-2(LL_{con} - LL_{uncon})}}
+#'           (RS-allowed) model.}
+#'         \item{\code{LRT_chi2}}{Omnibus LRT statistic
+#'           \eqn{-2(\ell_{con} - \ell_{uncon})}.}
 #'         \item{\code{LRT_df}}{Degrees of freedom (number of freed
-#'           constraints)}
-#'         \item{\code{LRT_p}}{Raw p-value from chi-squared distribution}
-#'         \item{\code{LRT_p_adj}}{Adjusted p-value (present only if
-#'           \code{global_p_adjust != "none"} and there are 2+ nodes)}
-#'         \item{\code{RS_detected}}{Logical: whether RS is detected at
-#'           the specified \code{alpha} level (uses adjusted p if available)}
-#'         \item{\code{pseudo_R2}}{McFadden's pseudo R-squared:
-#'           \eqn{1 - LL_{uncon}/LL_{con}}}
-#'         \item{\code{AIC_diff}}{AIC difference:
-#'           \eqn{AIC_{con} - AIC_{uncon}}. Positive values indicate the
-#'           unconstrained model fits better after parsimony penalty.}
-#'         \item{\code{mu_T2}}{Latent mean shift at T2 from the constrained
-#'           model. Positive = improvement, negative = decline.}
-#'         \item{\code{sigma2_T2}}{Latent variance at T2}
-#'         \item{\code{cor_T1_T2}}{Correlation between latent traits at T1
-#'           and T2, reflecting stability of individual differences}
-#'         \item{\code{converged_constrained}}{Logical: whether the
-#'           constrained model converged}
-#'         \item{\code{converged_unconstrained}}{Logical: whether the
-#'           unconstrained model converged}
+#'           constraints).}
+#'         \item{\code{LRT_p}}{Raw omnibus p-value.}
+#'         \item{\code{LRT_p_adj}}{Omnibus p-value adjusted across nodes
+#'           (present only when \code{global_p_adjust != "none"} and there are
+#'           two or more nodes).}
+#'         \item{\code{RS_detected}}{Logical: whether omnibus RS is detected at
+#'           \code{alpha} after adjustment. \strong{This flag gates item-level
+#'           testing.}}
+#'         \item{\code{pseudo_R2}}{McFadden's pseudo-\eqn{R^2},
+#'           \eqn{1 - \ell_{uncon}/\ell_{con}}.}
+#'         \item{\code{AIC_diff}}{\eqn{AIC_{con} - AIC_{uncon}}; positive
+#'           favours the unconstrained model.}
+#'         \item{\code{mu_T2}}{Latent mean shift at T2 (constrained model).}
+#'         \item{\code{sigma2_T2}}{Latent variance at T2.}
+#'         \item{\code{cor_T1_T2}}{Test-retest correlation of the latent trait.}
+#'         \item{\code{converged_constrained}, \code{converged_unconstrained}}{
+#'           Convergence flags for the two models.}
 #'       }
 #'     }
-#'     \item{\code{item_level}}{A \code{data.frame} with item-level RS test
-#'       results (one row per item per node where omnibus RS was detected),
-#'       with columns:
+#'     \item{\code{item_level}}{A \code{data.frame} of item-level results, one
+#'       row per item \strong{only for RS-detected nodes} (\code{NULL} if no
+#'       node was detected or \code{item_level = FALSE}):
 #'       \describe{
-#'         \item{\code{Node}}{Terminal node ID}
-#'         \item{\code{Item}}{Item number (1 to \code{n_items})}
-#'         \item{\code{LRT_chi2}}{LRT statistic for freeing this item}
-#'         \item{\code{LRT_df}}{Degrees of freedom (1 discrimination +
-#'           thresholds for this item)}
-#'         \item{\code{LRT_p}}{Raw p-value}
-#'         \item{\code{LRT_p_adj}}{Adjusted p-value (if \code{p_adjust !=
-#'           "none"})}
-#'         \item{\code{RS_type}}{Classification: \code{"Recalibration"},
-#'           \code{"Reprioritization"}, \code{"Both"},
-#'           \code{"Significant (small effect)"}, or \code{"None"}}
+#'         \item{\code{Node}, \code{Item}}{Node ID and item number (1..M).}
+#'         \item{\code{LRT_chi2}, \code{LRT_df}, \code{LRT_p}}{The \emph{joint}
+#'           item test (free this item's discrimination and thresholds vs the
+#'           constrained model): statistic, df \eqn{= K} (1 discrimination plus
+#'           \eqn{K-1} thresholds), and raw p-value. This is the item
+#'           \emph{detection} test.}
+#'         \item{\code{LRT_p_adj}}{Joint p-value adjusted across items within
+#'           the node (\code{p_adjust}); an item is flagged when this is below
+#'           \code{alpha}.}
+#'         \item{\code{RS_type}}{\code{"Recalibration"}, \code{"Reprioritization"},
+#'           \code{"Both"}, or \code{"None"} -- determined by the component LRTs
+#'           (see Details), never by a magnitude cut-point.}
+#'         \item{\code{discr_diff}, \code{thresh_diff}}{Effect sizes: the
+#'           absolute T1-vs-T2 discrimination change and the maximum absolute
+#'           threshold change (reported, not used to decide the type).}
+#'         \item{\code{RS_magnitude}}{\code{"large"}/\code{"small"} annotation
+#'           of a flagged item's effect size against \code{rs_threshold}
+#'           (\code{NA} for unflagged items).}
 #'       }
-#'       \code{NULL} if no nodes showed significant omnibus RS or
-#'       \code{item_level = FALSE}.
 #'     }
-#'     \item{\code{parameters}}{A named list (one element per node) of lists
-#'       containing \code{constrained} and \code{unconstrained} item parameter
-#'       matrices (IRT parameterization with discrimination \code{a1}/\code{a2}
-#'       and thresholds \code{b1}, ..., \code{bK}).}
-#'     \item{\code{n_items}}{Number of items per time point.}
-#'     \item{\code{alpha}}{Significance level used.}
-#'     \item{\code{p_adjust}}{Item-level p-value adjustment method.}
-#'     \item{\code{global_p_adjust}}{Omnibus p-value adjustment method.}
-#'     \item{\code{rs_threshold}}{RS classification threshold.}
+#'     \item{\code{parameters}}{A named list (one element per node) of
+#'       \code{constrained} and \code{unconstrained} item-parameter matrices
+#'       (IRT parameterization).}
+#'     \item{\code{n_items}, \code{alpha}, \code{p_adjust},
+#'       \code{global_p_adjust}, \code{rs_threshold}}{The settings used.}
 #'   }
 #'
 #' @details
-#' ## The Two-Phase Framework
+#' ## The two-phase framework
 #'
-#' The Longitudinal GRMTree operates as an integrated two-phase method:
+#' Phase 1 (\code{\link{longitudinal_grmtree}}) embeds a constrained
+#' longitudinal GRM (item parameters equal across T1 and T2) in model-based
+#' recursive partitioning, identifying subgroups that require different
+#' \emph{constrained} measurement models. Phase 2 (this function) relaxes the
+#' equality constraints within each subgroup and asks whether item parameters
+#' actually change over time. This separates between-group measurement
+#' heterogeneity (captured by the tree) from within-group temporal change
+#' (response shift).
 #'
-#' \strong{Phase 1 (\code{\link{longitudinal_grmtree}}):} Embeds a constrained
-#' longitudinal GRM (item parameters equal across T1 and T2) within
-#' model-based recursive partitioning. The tree identifies patient subgroups
-#' requiring different constrained measurement models. This ensures that
-#' subsequent RS testing is conducted within measurement-homogeneous groups.
+#' ## Omnibus test and the gate on item-level testing
 #'
-#' \strong{Phase 2 (this function):} Within each terminal node, relaxes the
-#' equality constraint and tests whether item parameters actually change over
-#' time. This separates between-group measurement heterogeneity (captured by
-#' the tree) from within-group temporal change (response shift).
+#' For each terminal node, a constrained model (all item parameters equal across
+#' waves) and an unconstrained model (all free) are fitted and compared by
+#' \deqn{\chi^2 = -2(\ell_{con} - \ell_{uncon}), \qquad
+#'       \mathrm{df} = \#\{\text{freed constraints}\}.}
+#' The omnibus p-values are then adjusted \strong{across nodes}
+#' (\code{global_p_adjust}) and \code{RS_detected} is set from the adjusted
+#' p-value. \strong{Item-level testing is performed only for nodes with}
+#' \code{RS_detected == TRUE}: a node that is not significant after adjustment is
+#' skipped, so it contributes no item rows. This is a deliberate two-pass design
+#' (all omnibus tests first, then adjustment, then item-level only where
+#' warranted) and it guarantees that the item-level results are consistent with
+#' the omnibus decision.
 #'
-#' ## Omnibus RS Test
+#' ## Item detection
 #'
-#' For each terminal node, the function fits two models to the node's data:
-#' \enumerate{
-#'   \item \strong{Constrained model:} Item parameters are equal across T1
-#'     and T2 (no response shift). This model has the same structure as the
-#'     model fitted during Phase 1.
-#'   \item \strong{Unconstrained model:} Item parameters are free to differ
-#'     between T1 and T2 (response shift allowed). All equality constraints
-#'     on discrimination and threshold parameters are removed.
-#' }
+#' Within an RS-detected node, each item is first tested for \emph{any} shift by
+#' a \emph{joint} LRT that frees that item's discrimination \emph{and}
+#' thresholds against the constrained model (df \eqn{= K}: one discrimination
+#' plus \eqn{K-1} thresholds). These joint p-values are adjusted across the
+#' items in the node (\code{p_adjust}); an item is \strong{flagged} when its
+#' adjusted joint p-value is below \code{alpha}. Unflagged items are
+#' \code{"None"}.
 #'
-#' The likelihood ratio test statistic is:
-#' \deqn{\chi^2 = -2(LL_{constrained} - LL_{unconstrained})}
+#' ## Type from the estimated parameter changes (not a confounded LRT)
 #'
-#' with degrees of freedom equal to the number of freed constraints
-#' (typically \eqn{M \times K} for \eqn{M} items with \eqn{K-1} thresholds
-#' each, plus \eqn{M} discrimination parameters).
+#' Once an item is flagged, its \emph{type} is read from the estimated
+#' T1-versus-T2 changes on the IRT (a, b) metric: the absolute discrimination
+#' change (\code{discr_diff}) indicates \strong{reprioritization} and the
+#' maximum absolute threshold change (\code{thresh_diff}) indicates
+#' \strong{recalibration}; both large is \strong{Both}. A flagged item is always
+#' given a real type -- if both changes are below \code{rs_threshold} it takes
+#' the larger one, so a significant item is never left untyped.
 #'
-#' ## Item-Level RS Testing
+#' This is deliberate. A tempting alternative -- decomposing the shift with
+#' nested LRTs that free the discrimination or the thresholds in turn -- does
+#' \strong{not} work here, because \pkg{mirt} parameterizes the graded model in
+#' slope-intercept form where the intercept \eqn{d = -a\,b}. A \emph{pure}
+#' discrimination change (\eqn{a} moves, \eqn{b} constant) therefore forces the
+#' intercepts to move, so any LRT that frees the intercepts fires for a
+#' reprioritization item, spuriously flagging recalibration. The estimated
+#' \eqn{a} and \eqn{b} changes, in contrast, separate the two shift types
+#' cleanly (\eqn{b = -d/a} un-confounds them), which is why the type is read
+#' from them. Detection remains a likelihood-ratio test; only the attribution of
+#' \emph{which} parameter moved uses the estimated changes, and both are
+#' reported (\code{discr_diff}, \code{thresh_diff}, \code{RS_magnitude}) so the
+#' classification is fully transparent.
 #'
-#' When the omnibus test is significant, each item is tested individually by
-#' freeing only that item's constraints while keeping all other items
-#' constrained. The LRT compares the fully constrained model to the partially
-#' constrained model with one item freed. This identifies which specific
-#' items contribute to the overall response shift.
+#' Separating \emph{detection} (is there a shift? -- LRT), \emph{type} (which
+#' parameter moved? -- estimated change), and \emph{magnitude} (how large? --
+#' effect size) is the point of the redesign.
 #'
-#' ## RS Type Classification
+#' ## Hierarchical error control
 #'
-#' For items showing statistically significant RS (after p-value adjustment),
-#' the type is classified by examining the freed item's T1 vs T2 parameters
-#' from the partially constrained model:
+#' Two adjustment layers are applied: \code{global_p_adjust} across nodes for
+#' "in which subgroups does RS occur?" (default Bonferroni), and \code{p_adjust}
+#' across items within a node for "which items shift?" (default Bonferroni; FDR
+#' recommended for exploration). The component tests that assign the type are a
+#' post-hoc decomposition of an already-flagged item and are read at
+#' \code{alpha}.
 #'
-#' \describe{
-#'   \item{\strong{Recalibration}}{Maximum absolute threshold difference
-#'     exceeds \code{rs_threshold}. Interpretation: the patient's internal
-#'     standards for endorsing response categories changed over time
-#'     (Sprangers & Schwartz, 1999).}
-#'   \item{\strong{Reprioritization}}{Absolute discrimination difference
-#'     exceeds \code{rs_threshold}. Interpretation: the item's relationship
-#'     to the underlying latent construct changed over time --- the item
-#'     became more or less central to the construct.}
-#'   \item{\strong{Both}}{Both discrimination and threshold changes exceed
-#'     \code{rs_threshold}.}
-#'   \item{\strong{Significant (small effect)}}{The LRT is significant but
-#'     neither parameter change exceeds \code{rs_threshold}. The RS is
-#'     statistically detectable but small in magnitude.}
-#' }
+#' ## Effect sizes
 #'
-#' ## Hierarchical P-Value Correction
-#'
-#' The function implements a two-level correction strategy:
-#' \enumerate{
-#'   \item \strong{Across nodes (omnibus):} \code{global_p_adjust} controls
-#'     the family-wise error rate for the question "in which subgroups does
-#'     RS occur?" Default is Bonferroni.
-#'   \item \strong{Within nodes (item-level):} \code{p_adjust} controls the
-#'     error rate for the question "which items exhibit RS within a given
-#'     subgroup?" Default is Bonferroni; FDR (Benjamini-Hochberg) is
-#'     recommended for exploratory analyses.
-#' }
-#'
-#' ## Effect Size Measures
-#'
-#' \describe{
-#'   \item{McFadden's pseudo R-squared}{\eqn{1 - LL_{uncon}/LL_{con}}.
-#'     Inherently small (~0.02) in IRT models because item parameters
-#'     account for only a fraction of the total likelihood. Values should
-#'     be compared across nodes rather than interpreted in absolute terms.}
-#'   \item{AIC difference}{\eqn{AIC_{con} - AIC_{uncon}}. Positive values
-#'     indicate the unconstrained model fits better even after penalizing
-#'     for additional parameters. Negative values suggest the constrained
-#'     model is preferred (response shift is not substantial enough to
-#'     justify the additional parameters).}
-#' }
+#' McFadden's pseudo-\eqn{R^2} \eqn{= 1 - \ell_{uncon}/\ell_{con}} is inherently
+#' small in IRT (~0.02) and is best compared across nodes. \eqn{AIC_{con} -
+#' AIC_{uncon}} is positive when the unconstrained model is preferred after the
+#' parsimony penalty. Item-level \code{discr_diff} and \code{thresh_diff} give
+#' the raw magnitude of the T1-vs-T2 parameter changes.
 #'
 #' @references
-#' Sprangers, M. A., & Schwartz, C. E. (1999). Integrating response shift
-#' into health-related quality of life research. \emph{Social Science &
-#' Medicine}, 48(11), 1507--1515.
+#' Oort, F. J. (2005). Using structural equation modeling to detect response
+#' shifts and true change. \emph{Quality of Life Research}, 14(3), 587--598.
 #'
-#' Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery
-#' rate: a practical and powerful approach to multiple testing. \emph{Journal
-#' of the Royal Statistical Society: Series B}, 57(1), 289--300.
+#' Sprangers, M. A. G., & Schwartz, C. E. (1999). Integrating response shift
+#' into health-related quality of life research: a theoretical model.
+#' \emph{Social Science & Medicine}, 48(11), 1507--1515.
+#'
+#' Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery rate:
+#' a practical and powerful approach to multiple testing. \emph{Journal of the
+#' Royal Statistical Society: Series B}, 57(1), 289--300.
 #'
 #' @author Olayinka Imisioluwa Arimoro \email{olayinka.arimoro@ucalgary.ca},
 #'   Lisa M. Lix, Tolulope T. Sajobi
 #'
 #' @examplesIf interactive()
 #' library(grmtree)
-#'
-#' # Load the synthetic longitudinal data
 #' data("grmtree_long_data", package = "grmtree")
+#' items_t1 <- c("MOS_Listen", "MOS_Info", "MOS_Advice_Crisis", "MOS_Confide",
+#'               "MOS_Advice_Want", "MOS_Fears", "MOS_Personal", "MOS_Understand")
+#' ld <- prepare_longitudinal_data(
+#'   data = grmtree_long_data, items_t1 = items_t1,
+#'   items_t2 = paste0(items_t1, "_year1"),
+#'   covariates = c("sex", "age", "residency", "job",
+#'                  "education", "comorbidity_count", "ever_smoker"))
+#' ltree <- longitudinal_grmtree(
+#'   resp_wide ~ sex + age + residency + job +
+#'     education + comorbidity_count + ever_smoker,
+#'   data = ld, n_items = 8, control = grmtree.control(minbucket = 200))
 #'
-#'   # Prepare the wide-format response matrix
-#'   items_t1 <- c("MOS_Listen", "MOS_Info", "MOS_Advice_Crisis", "MOS_Confide",
-#'                 "MOS_Advice_Want", "MOS_Fears", "MOS_Personal", "MOS_Understand")
-#'   ld <- prepare_longitudinal_data(
-#'     data = grmtree_long_data,
-#'     items_t1 = items_t1,
-#'     items_t2 = paste0(items_t1, "_year1"),
-#'     covariates = c("sex", "age", "residency", "job",
-#'                    "education", "comorbidity_count", "ever_smoker")
-#'   )
+#' # Default: Bonferroni across nodes and within-node; type from component LRTs
+#' rs <- rs_characterize(ltree)
+#' print(rs)
 #'
-#'   # After fitting the tree (Phase 1)
-#'   ltree <- longitudinal_grmtree(
-#'     resp_wide ~ sex + age + residency + job +
-#'       education + comorbidity_count + ever_smoker,
-#'     data = ld, n_items = 8,
-#'     control = grmtree.control(minbucket = 200)
-#'   )
+#' # FDR for the item search, Bonferroni across nodes
+#' rs <- rs_characterize(ltree, p_adjust = "fdr", global_p_adjust = "bonferroni")
 #'
-#'   # Phase 2: characterize response shift within each subgroup
-#'   rs <- rs_characterize(ltree, p_adjust = "fdr",
-#'     global_p_adjust = "bonferroni")
-#'   print(rs)
-#'
-#'   # Phase 2: Characterize RS
-#'   # Default: Bonferroni at both levels, threshold = 0.3
-#'   rs <- rs_characterize(ltree)
-#'
-#'   # Recommended: FDR for item-level, Bonferroni for omnibus
-#'   rs <- rs_characterize(ltree,
-#'     p_adjust = "fdr",
-#'     global_p_adjust = "bonferroni",
-#'     rs_threshold = 0.3
-#'   )
-#'
-#'   # No omnibus correction (each node tested independently)
-#'   rs <- rs_characterize(ltree, global_p_adjust = "none")
-#'
-#'   # More conservative RS classification
-#'   rs <- rs_characterize(ltree, rs_threshold = 0.5)
-#'
-#'   # View results
-#'   print(rs)
-#'
-#'   # Access components
-#'   rs$global         # Omnibus results per node
-#'   rs$item_level     # Item-level results
-#'   rs$parameters     # Raw parameter matrices
+#' rs$global      # omnibus per node (RS_detected gates the item tests)
+#' rs$item_level  # item detection + type + effect sizes, for detected nodes only
 #'
 #' @seealso
 #'   \code{\link{longitudinal_grmtree}} for Phase 1 (tree fitting),
@@ -297,390 +269,236 @@
 #' @importFrom mirt mirt mirt.model coef logLik extract.mirt
 #' @importFrom partykit nodeids data_party
 #' @importFrom stats pchisq na.omit p.adjust formula AIC
-
 rs_characterize <- function(object, node = NULL,
                             item_level = TRUE, alpha = 0.05,
                             p_adjust = "bonferroni",
                             global_p_adjust = "bonferroni",
                             rs_threshold = 0.3,
                             verbose = TRUE, ...) {
-
   # ---- Input validation ----
-  if (!inherits(object, "longitudinal_grmtree")) {
+
+  if (!inherits(object, "longitudinal_grmtree"))
     stop("'object' must be a longitudinal_grmtree object")
-  }
   valid_methods <- c("none", "bonferroni", "holm", "BH", "BY", "fdr",
                      "hochberg", "hommel")
-  if (!p_adjust %in% valid_methods) {
+  if (!p_adjust %in% valid_methods)
     stop("'p_adjust' must be a valid p.adjust method or 'none'")
-  }
-  if (!global_p_adjust %in% valid_methods) {
+  if (!global_p_adjust %in% valid_methods)
     stop("'global_p_adjust' must be a valid p.adjust method or 'none'")
-  }
-
   n_items <- object$info$n_items
-  if (is.null(n_items)) {
+  if (is.null(n_items))
     stop("Tree object does not contain n_items. Was it fit with longitudinal_grmtree()?")
-  }
-
-  # Get terminal node IDs
-  if (is.null(node)) {
-    node <- partykit::nodeids(object, terminal = TRUE)
-  }
+  if (is.null(node)) node <- partykit::nodeids(object, terminal = TRUE)
 
   # ---- Identify the response variable name from the formula ----
   tree_formula <- object$info$call$formula
-  if (is.null(tree_formula)) {
-    tree_formula <- formula(object)
-  }
-  resp_name <- as.character(tree_formula[[2]])  # LHS of formula
+  if (is.null(tree_formula)) tree_formula <- formula(object)
+  resp_name <- as.character(tree_formula[[2]])
 
   # ---- Build model specification strings ----
   model_str_base <- paste0(
     'Theta_T1 = 1-', n_items, '\n',
     'Theta_T2 = ', n_items + 1, '-', 2 * n_items, '\n',
-    'COV = Theta_T1*Theta_T2\n',
-    'MEAN = Theta_T2'
-  )
+    'COV = Theta_T1*Theta_T2\nMEAN = Theta_T2')
 
-  # ---- Process each terminal node ----
-  global_results <- list()
-  item_results <- list()
-  param_list <- list()
-
-  for (nd in node) {
-
-    if (verbose) message("Processing node ", nd, "...")
-
-    # ---- Extract data using data_party() ----
-    node_data <- tryCatch(
-      partykit::data_party(object, id = nd),
-      error = function(e) {
-        warning("Failed to extract data for node ", nd, ": ", e$message)
-        NULL
-      }
-    )
-
-    if (is.null(node_data) || nrow(node_data) == 0) {
-      global_results[[as.character(nd)]] <- data.frame(
-        Node = nd, n = 0,
-        LL_constrained = NA, LL_unconstrained = NA,
-        LRT_chi2 = NA, LRT_df = NA, LRT_p = NA,
-        RS_detected = NA, pseudo_R2 = NA, AIC_diff = NA,
-        mu_T2 = NA, sigma2_T2 = NA, cor_T1_T2 = NA,
-        converged_constrained = NA, converged_unconstrained = NA,
-        stringsAsFactors = FALSE
-      )
-      next
-    }
-
-    # Extract the response matrix by name (e.g., "resp_wide")
-    y_node <- node_data[[resp_name]]
-    if (!is.matrix(y_node)) y_node <- as.matrix(y_node)
-    n_node <- nrow(y_node)
-
-    if (verbose) message("  n = ", n_node)
-
-    # ---- Detect thresholds for this subgroup ----
-    n_cats_per_col <- apply(y_node, 2, function(col) length(unique(na.omit(col))))
-
-    # ---- Fit CONSTRAINED model (no RS) ----
-    constraint_parts <- character(0)
-    for (i in 1:n_items) {
+  ## --- helper: per-item constraint tuples from the node's category counts ---
+  make_tuples <- function(n_cats_per_col) {
+    a_tup <- character(n_items); thr_tup <- vector("list", n_items)
+    for (i in seq_len(n_items)) {
       j <- i + n_items
-      constraint_parts <- c(constraint_parts, paste0("(", i, ", a1, ", j, ", a2)"))
+      a_tup[i] <- sprintf("(%d, a1, %d, a2)", i, j)
       n_thresh_i <- min(n_cats_per_col[i], n_cats_per_col[j]) - 1
-      if (n_thresh_i > 0) {
-        for (d in 1:n_thresh_i) {
-          constraint_parts <- c(constraint_parts, paste0("(", i, ", ", j, ", d", d, ")"))
-        }
-      }
+      tt <- character(0)
+      if (n_thresh_i > 0)
+        for (d in seq_len(n_thresh_i)) tt <- c(tt, sprintf("(%d, %d, d%d)", i, j, d))
+      thr_tup[[i]] <- tt
     }
-    all_constraints <- paste(constraint_parts, collapse = ", ")
-    model_constrained_str <- paste0(model_str_base, '\nCONSTRAIN = ', all_constraints)
+    list(a_tup = a_tup, thr_tup = thr_tup)
+  }
 
-    fit_constrained <- tryCatch({
-      mirt::mirt(
-        data = y_node,
-        model = mirt::mirt.model(model_constrained_str),
-        itemtype = 'graded',
-        SE = FALSE,
-        verbose = FALSE,
-        technical = list(NCYCLES = 1000)
-      )
-    }, error = function(e) {
-      warning("Constrained model failed in node ", nd, ": ", e$message)
-      NULL
-    })
+  ## --- helper: fit a graded two-factor model given a CONSTRAIN string ---
+  fit_model <- function(y, constrain) {
+    m2s <- if (is.null(constrain) || !nzchar(constrain)) model_str_base
+    else paste0(model_str_base, '\nCONSTRAIN = ', constrain)
+    tryCatch(
+      mirt::mirt(data = y, model = mirt::mirt.model(m2s), itemtype = 'graded',
+                 SE = FALSE, verbose = FALSE, technical = list(NCYCLES = 1000), ...),
+      error = function(e) { warning("model fit failed: ", e$message); NULL })
+  }
 
-    # ---- Fit UNCONSTRAINED model (RS allowed) ----
-    fit_unconstrained <- tryCatch({
-      mirt::mirt(
-        data = y_node,
-        model = mirt::mirt.model(model_str_base),
-        itemtype = 'graded',
-        SE = FALSE,
-        verbose = FALSE,
-        technical = list(NCYCLES = 1000)
-      )
-    }, error = function(e) {
-      warning("Unconstrained model failed in node ", nd, ": ", e$message)
-      NULL
-    })
+  na_global <- function(nd, n = 0) data.frame(
+    Node = nd, n = n, LL_constrained = NA, LL_unconstrained = NA,
+    LRT_chi2 = NA, LRT_df = NA, LRT_p = NA, RS_detected = NA,
+    pseudo_R2 = NA, AIC_diff = NA, mu_T2 = NA, sigma2_T2 = NA, cor_T1_T2 = NA,
+    converged_constrained = NA, converged_unconstrained = NA,
+    stringsAsFactors = FALSE)
 
-    if (is.null(fit_constrained) || is.null(fit_unconstrained)) {
-      global_results[[as.character(nd)]] <- data.frame(
-        Node = nd, n = n_node,
-        LL_constrained = NA, LL_unconstrained = NA,
-        LRT_chi2 = NA, LRT_df = NA, LRT_p = NA,
-        RS_detected = NA, pseudo_R2 = NA, AIC_diff = NA,
-        mu_T2 = NA, sigma2_T2 = NA, cor_T1_T2 = NA,
-        converged_constrained = NA, converged_unconstrained = NA,
-        stringsAsFactors = FALSE
-      )
-      next
-    }
+  ## ======================= PASS 1: omnibus per node =======================
+  global_results <- list(); param_list <- list(); node_cache <- list()
+  for (nd in node) {
+    if (verbose) message("Processing node ", nd, " (omnibus)...")
+    node_data <- tryCatch(partykit::data_party(object, id = nd),
+                          error = function(e) NULL)
+    if (is.null(node_data) || nrow(node_data) == 0) {
+      global_results[[as.character(nd)]] <- na_global(nd); next }
+    y <- node_data[[resp_name]]; if (!is.matrix(y)) y <- as.matrix(y)
+    n_node <- nrow(y)
+    n_cats_per_col <- apply(y, 2, function(col) length(unique(na.omit(col))))
+    tup <- make_tuples(n_cats_per_col)
+    full_constrain <- paste(c(tup$a_tup, unlist(tup$thr_tup)), collapse = ", ")
+    n_constraints  <- length(tup$a_tup) + length(unlist(tup$thr_tup))
 
-    # ---- Omnibus LRT: Constrained vs Unconstrained ----
-    ll_con <- as.numeric(logLik(fit_constrained))
-    ll_uncon <- as.numeric(logLik(fit_unconstrained))
-    n_constraints <- length(constraint_parts)
-    lrt_chi2 <- -2 * (ll_con - ll_uncon)
-    lrt_df <- n_constraints
+    fit_con   <- fit_model(y, full_constrain)
+    fit_uncon <- fit_model(y, NULL)
+    if (is.null(fit_con) || is.null(fit_uncon)) {
+      global_results[[as.character(nd)]] <- na_global(nd, n_node); next }
+
+    ll_con <- as.numeric(logLik(fit_con)); ll_uncon <- as.numeric(logLik(fit_uncon))
+    lrt_chi2 <- -2 * (ll_con - ll_uncon); lrt_df <- n_constraints
     lrt_p <- pchisq(lrt_chi2, df = lrt_df, lower.tail = FALSE)
-
-    # Effect sizes for omnibus RS test
-    pseudo_r2 <- 1 - (ll_uncon / ll_con)  # McFadden's pseudo R²
-    # AIC = -2*LL + 2*k; compute from extract.mirt to get npar safely
-    npar_con <- mirt::extract.mirt(fit_constrained, 'nest')
-    npar_uncon <- mirt::extract.mirt(fit_unconstrained, 'nest')
-    aic_con <- -2 * ll_con + 2 * npar_con
-    aic_uncon <- -2 * ll_uncon + 2 * npar_uncon
-    aic_diff <- aic_con - aic_uncon  # Positive = unconstrained fits better
-
-    # Extract latent trait parameters from constrained model
-    coefs_con <- mirt::coef(fit_constrained, simplify = TRUE)
-    mu_T2 <- coefs_con$means[2]
-    cov_mat <- coefs_con$cov
+    pseudo_r2 <- 1 - (ll_uncon / ll_con)
+    npar_con   <- mirt::extract.mirt(fit_con, 'nest')
+    npar_uncon <- mirt::extract.mirt(fit_uncon, 'nest')
+    aic_diff <- (-2 * ll_con + 2 * npar_con) - (-2 * ll_uncon + 2 * npar_uncon)
+    cc <- mirt::coef(fit_con, simplify = TRUE)
+    mu_T2 <- cc$means[2]; cov_mat <- cc$cov
     sigma2_T2 <- cov_mat[2, 2]
     cor_T1_T2 <- cov_mat[1, 2] / sqrt(cov_mat[1, 1] * cov_mat[2, 2])
 
-    # Convergence check
-    conv_con <- fit_constrained@OptimInfo$converged
-    conv_uncon <- fit_unconstrained@OptimInfo$converged
-
-    # Check for extreme parameters (potential estimation problems)
-    coefs_uncon_items <- mirt::coef(fit_unconstrained, IRTpars = TRUE, simplify = TRUE)$items
-    extreme_discr <- any(abs(coefs_uncon_items[, grep("^a", colnames(coefs_uncon_items))]) > 10,
-                         na.rm = TRUE)
-    if (extreme_discr && verbose) {
-      warning("Node ", nd, ": Extreme discrimination parameters detected (>10). ",
-              "Check for sparse categories or separation.")
-    }
-
     global_results[[as.character(nd)]] <- data.frame(
-      Node = nd,
-      n = n_node,
-      LL_constrained = round(ll_con, 2),
-      LL_unconstrained = round(ll_uncon, 2),
-      LRT_chi2 = round(lrt_chi2, 3),
-      LRT_df = lrt_df,
-      LRT_p = lrt_p,
-      RS_detected = lrt_p < alpha,
-      pseudo_R2 = round(pseudo_r2, 4),
-      AIC_diff = round(aic_diff, 2),
-      mu_T2 = round(mu_T2, 3),
-      sigma2_T2 = round(sigma2_T2, 3),
-      cor_T1_T2 = round(cor_T1_T2, 3),
-      converged_constrained = conv_con,
-      converged_unconstrained = conv_uncon,
-      stringsAsFactors = FALSE
-    )
-
-    if (verbose) {
-      message("  Constrained LL = ", round(ll_con, 2),
-              ", Unconstrained LL = ", round(ll_uncon, 2))
-      message("  LRT chi2 = ", round(lrt_chi2, 3),
-              ", df = ", lrt_df,
-              ", p = ", formatC(lrt_p, format = "e", digits = 3))
-      message("  RS detected: ", lrt_p < alpha,
-              "  (pseudo R2 = ", round(pseudo_r2, 4),
-              ", AIC diff = ", round(aic_diff, 1), ")")
-      message("  mu_T2 = ", round(mu_T2, 3),
-              ", cor(T1,T2) = ", round(cor_T1_T2, 3))
-    }
-
-    # ---- Store parameters for comparison ----
-    coefs_con_items <- mirt::coef(fit_constrained, IRTpars = TRUE, simplify = TRUE)$items
-
+      Node = nd, n = n_node,
+      LL_constrained = round(ll_con, 2), LL_unconstrained = round(ll_uncon, 2),
+      LRT_chi2 = round(lrt_chi2, 3), LRT_df = lrt_df, LRT_p = lrt_p,
+      RS_detected = lrt_p < alpha, pseudo_R2 = round(pseudo_r2, 4),
+      AIC_diff = round(aic_diff, 2), mu_T2 = round(mu_T2, 3),
+      sigma2_T2 = round(sigma2_T2, 3), cor_T1_T2 = round(cor_T1_T2, 3),
+      converged_constrained = fit_con@OptimInfo$converged,
+      converged_unconstrained = fit_uncon@OptimInfo$converged,
+      stringsAsFactors = FALSE)
     param_list[[as.character(nd)]] <- list(
-      constrained = coefs_con_items,
-      unconstrained = coefs_uncon_items
-    )
+      constrained   = mirt::coef(fit_con,   IRTpars = TRUE, simplify = TRUE)$items,
+      unconstrained = mirt::coef(fit_uncon, IRTpars = TRUE, simplify = TRUE)$items)
+    node_cache[[as.character(nd)]] <- list(y = y, ll_con = ll_con, tup = tup)
 
-    # ---- Item-level RS testing ----
-    if (item_level && lrt_p < alpha) {
-
-      if (verbose) message("  Performing item-level RS testing...")
-
-      item_rs <- lapply(1:n_items, function(m) {
-
-        # Free item m: remove its constraints from the list
-        j <- m + n_items
-
-        # Build constraints excluding item m
-        partial_parts <- character(0)
-        for (i in 1:n_items) {
-          if (i == m) next  # Skip this item
-          jj <- i + n_items
-          partial_parts <- c(partial_parts, paste0("(", i, ", a1, ", jj, ", a2)"))
-          n_thresh_i <- min(n_cats_per_col[i], n_cats_per_col[jj]) - 1
-          if (n_thresh_i > 0) {
-            for (d in 1:n_thresh_i) {
-              partial_parts <- c(partial_parts, paste0("(", i, ", ", jj, ", d", d, ")"))
-            }
-          }
-        }
-
-        if (length(partial_parts) == 0) return(NULL)
-
-        partial_constraints <- paste(partial_parts, collapse = ", ")
-        model_partial_str <- paste0(model_str_base, '\nCONSTRAIN = ', partial_constraints)
-
-        fit_partial <- tryCatch({
-          mirt::mirt(
-            data = y_node,
-            model = mirt::mirt.model(model_partial_str),
-            itemtype = 'graded',
-            SE = FALSE,
-            verbose = FALSE,
-            technical = list(NCYCLES = 1000)
-          )
-        }, error = function(e) {
-          warning("Partial model (free item ", m, ") failed in node ", nd)
-          NULL
-        })
-
-        if (is.null(fit_partial)) {
-          return(data.frame(
-            Node = nd, Item = m,
-            LRT_chi2 = NA, LRT_df = NA, LRT_p = NA,
-            RS_type = NA,
-            stringsAsFactors = FALSE
-          ))
-        }
-
-        # LRT: constrained (all equal) vs partial (item m free)
-        ll_partial <- as.numeric(logLik(fit_partial))
-        n_freed <- 1 + min(n_cats_per_col[m], n_cats_per_col[j]) - 1
-        # freed: 1 discrimination + thresholds for item m
-        item_chi2 <- -2 * (ll_con - ll_partial)
-        item_p <- pchisq(item_chi2, df = n_freed, lower.tail = FALSE)
-
-        # Determine RS type by comparing T1 vs T2 parameters
-        rs_type <- "None"
-        if (item_p < alpha) {
-          coefs_partial <- mirt::coef(fit_partial, IRTpars = TRUE, simplify = TRUE)$items
-
-          # Compare discrimination for item m
-          a_t1 <- coefs_partial[m, "a1"]       # T1 item discrimination
-          a_t2 <- coefs_partial[j, "a2"]       # T2 item discrimination
-          discr_diff <- abs(a_t1 - a_t2)
-
-          # Compare thresholds for item m
-          d_names_t1 <- grep("^b\\d+$", colnames(coefs_partial), value = TRUE)
-          thresh_t1 <- coefs_partial[m, d_names_t1]
-          thresh_t2 <- coefs_partial[j, d_names_t1]
-          thresh_diff <- max(abs(thresh_t1 - thresh_t2), na.rm = TRUE)
-
-          # Classify RS type based on parameter differences
-          has_reprioritization <- discr_diff > rs_threshold
-          has_recalibration <- thresh_diff > rs_threshold
-
-          if (has_reprioritization && has_recalibration) {
-            rs_type <- "Both"
-          } else if (has_reprioritization) {
-            rs_type <- "Reprioritization"
-          } else if (has_recalibration) {
-            rs_type <- "Recalibration"
-          } else {
-            rs_type <- "Significant (small effect)"
-          }
-        }
-
-        data.frame(
-          Node = nd,
-          Item = m,
-          LRT_chi2 = round(item_chi2, 3),
-          LRT_df = n_freed,
-          LRT_p = round(item_p, 6),
-          RS_type = rs_type,
-          stringsAsFactors = FALSE
-        )
-      })
-
-      item_results[[as.character(nd)]] <- do.call(rbind, item_rs)
-
-      if (verbose) {
-        item_df <- item_results[[as.character(nd)]]
-        sig_items <- item_df[item_df$LRT_p < alpha & !is.na(item_df$LRT_p), ]
-        if (nrow(sig_items) > 0) {
-          message("  Items with RS (unadjusted): ",
-                  paste(sig_items$Item, " (", sig_items$RS_type, ")",
-                        sep = "", collapse = ", "))
-        } else {
-          message("  No individual items reached significance")
-        }
-      }
-    }
+    if (verbose) message("  n = ", n_node)
   }
-
-  # ---- Compile results ----
   global_df <- do.call(rbind, global_results)
-  item_level_df <- if (length(item_results) > 0) do.call(rbind, item_results) else NULL
 
-  # Apply p-value adjustment to omnibus RS tests across nodes
+  ## ---- adjust omnibus across nodes -> RS_detected (this gates item tests) ----
   if (global_p_adjust != "none" && nrow(global_df) > 1) {
     non_na <- !is.na(global_df$LRT_p)
     global_df$LRT_p_adj <- NA_real_
-    global_df$LRT_p_adj[non_na] <- p.adjust(global_df$LRT_p[non_na],
-                                            method = global_p_adjust)
-    # Update RS_detected based on adjusted p-values
+    global_df$LRT_p_adj[non_na] <- p.adjust(global_df$LRT_p[non_na], method = global_p_adjust)
     global_df$RS_detected <- global_df$LRT_p_adj < alpha
     global_df$RS_detected[is.na(global_df$LRT_p_adj)] <- NA
-    if (verbose) {
-      message("\nOmnibus p-values adjusted across ", sum(non_na),
-              " nodes using '", global_p_adjust, "' method.")
+    if (verbose) message("\nOmnibus p-values adjusted across ", sum(non_na),
+                         " nodes using '", global_p_adjust, "' method.")
+  }
+
+  ## ---- verbose: full per-node omnibus summary (printed AFTER adjustment so
+  ##      RS_detected is the final, family-wise decision that gates item tests) ----
+  if (verbose) {
+    has_adj <- "LRT_p_adj" %in% names(global_df)
+    for (i in seq_len(nrow(global_df))) {
+      g <- global_df[i, ]
+      message("\nNode ", g$Node, " (n = ", g$n, "):")
+      message("  Constrained LL = ", g$LL_constrained,
+              ", Unconstrained LL = ", g$LL_unconstrained)
+      if (has_adj && !is.na(g$LRT_p_adj))
+        message("  LRT chi2 = ", g$LRT_chi2, ", df = ", g$LRT_df,
+                ", p = ", formatC(g$LRT_p, format = "e", digits = 3),
+                ", p_adj = ", formatC(g$LRT_p_adj, format = "e", digits = 3))
+      else
+        message("  LRT chi2 = ", g$LRT_chi2, ", df = ", g$LRT_df,
+                ", p = ", formatC(g$LRT_p, format = "e", digits = 3))
+      message("  RS detected: ", g$RS_detected,
+              "  (pseudo R2 = ", g$pseudo_R2, ", AIC diff = ", round(g$AIC_diff, 1), ")")
+      message("  mu_T2 = ", g$mu_T2, ", cor(T1,T2) = ", g$cor_T1_T2)
     }
   }
 
-  # Apply p-value adjustment to item-level tests within each node
-  if (!is.null(item_level_df) && p_adjust != "none") {
-    for (nd_id in unique(item_level_df$Node)) {
-      nd_rows <- which(item_level_df$Node == nd_id)
-      raw_p <- item_level_df$LRT_p[nd_rows]
-      item_level_df$LRT_p_adj[nd_rows] <- p.adjust(raw_p, method = p_adjust)
-    }
-    if (verbose) {
-      message("\nItem-level p-values adjusted using '", p_adjust, "' method.")
+  ## ================ PASS 2: item-level in RS-detected nodes ================
+  item_results <- list()
+  if (item_level) {
+    det_nodes <- global_df$Node[!is.na(global_df$RS_detected) & global_df$RS_detected]
+    for (nd in det_nodes) {
+      ch <- node_cache[[as.character(nd)]]; if (is.null(ch)) next
+      y <- ch$y; ll_con <- ch$ll_con
+      a_all <- ch$tup$a_tup; thr_all <- ch$tup$thr_tup; M <- n_items
+      if (verbose) message("Node ", nd, ": item-level RS testing (RS detected)...")
+
+      ## Detection + type, one joint fit per item:
+      ##   detection = joint LRT (free item m's discrimination AND thresholds)
+      ##              vs the constrained model, adjusted across items;
+      ##   type      = read from the ESTIMATED T1-vs-T2 changes on the IRT
+      ##               (a, b) metric (discr_diff, thresh_diff), because the
+      ##               slope-intercept (a, d) parameterization confounds an
+      ##               LRT decomposition (d = -a*b, so a pure discrimination
+      ##               change forces the intercepts, firing a threshold LRT).
+      rows <- lapply(seq_len(M), function(m) {
+        con_str <- paste(c(a_all[-m], unlist(thr_all[-m])), collapse = ", ")
+        fit_ab  <- fit_model(y, con_str)
+        df_j    <- 1 + length(thr_all[[m]])
+        if (is.null(fit_ab))
+          return(data.frame(Node = nd, Item = m, LRT_chi2 = NA, LRT_df = df_j,
+                            LRT_p = NA, discr_diff = NA, thresh_diff = NA,
+                            stringsAsFactors = FALSE))
+        ll_ab <- as.numeric(logLik(fit_ab))
+        chi2  <- -2 * (ll_con - ll_ab)
+        p     <- pchisq(chi2, df = df_j, lower.tail = FALSE)
+        co <- mirt::coef(fit_ab, IRTpars = TRUE, simplify = TRUE)$items
+        bn <- grep("^b\\d+$", colnames(co), value = TRUE)
+        data.frame(Node = nd, Item = m, LRT_chi2 = round(chi2, 3), LRT_df = df_j,
+                   LRT_p = round(p, 6),
+                   discr_diff  = round(abs(co[m, "a1"] - co[m + M, "a2"]), 4),
+                   thresh_diff = round(max(abs(co[m, bn] - co[m + M, bn]), na.rm = TRUE), 4),
+                   stringsAsFactors = FALSE)
+      })
+      idf <- do.call(rbind, rows)
+
+      ## item DETECTION: adjust joint p across items within the node
+      idf$LRT_p_adj <- if (p_adjust != "none")
+        round(p.adjust(idf$LRT_p, method = p_adjust), 6) else round(idf$LRT_p, 6)
+      flagged <- !is.na(idf$LRT_p_adj) & idf$LRT_p_adj < alpha
+
+      ## item TYPE from the IRT-metric parameter changes (effect sizes).
+      ## A flagged item is ALWAYS given a real type (recal/reprior/both); if
+      ## both changes are below rs_threshold it takes the larger one (never a
+      ## "significant-but-untyped" limbo). rs_threshold is a practical-magnitude
+      ## criterion here, reported alongside the raw changes -- not a test.
+      repri <- flagged & !is.na(idf$discr_diff)  & idf$discr_diff  > rs_threshold
+      recal <- flagged & !is.na(idf$thresh_diff) & idf$thresh_diff > rs_threshold
+      rs_type <- rep("None", nrow(idf))
+      rs_type[repri & recal]  <- "Both"
+      rs_type[repri & !recal] <- "Reprioritization"
+      rs_type[!repri & recal] <- "Recalibration"
+      edge <- flagged & !repri & !recal                 # flagged, both sub-threshold
+      dom_repri <- !is.na(idf$discr_diff) & !is.na(idf$thresh_diff) &
+        idf$discr_diff >= idf$thresh_diff
+      rs_type[edge &  dom_repri] <- "Reprioritization"
+      rs_type[edge & !dom_repri] <- "Recalibration"
+      idf$RS_type <- rs_type
+      idf$RS_magnitude <- ifelse(flagged,
+                                 ifelse(pmax(idf$discr_diff, idf$thresh_diff, na.rm = TRUE) >= rs_threshold,
+                                        "large", "small"), NA_character_)
+      item_results[[as.character(nd)]] <- idf
+      if (verbose) {
+        idf <- item_results[[as.character(nd)]]; fl <- idf[idf$RS_type != "None", ]
+        if (nrow(fl)) message("  Items with RS (adjusted): ",
+                              paste(fl$Item, " (", fl$RS_type, ")", sep = "", collapse = ", "))
+        else message("  No items flagged after adjustment")
+      }
     }
   }
+  item_level_df <- if (length(item_results)) do.call(rbind, item_results) else NULL
 
   out <- list(
-    global = global_df,
-    item_level = item_level_df,
-    parameters = param_list,
-    n_items = n_items,
-    alpha = alpha,
-    p_adjust = p_adjust,
-    global_p_adjust = global_p_adjust,
-    rs_threshold = rs_threshold
-  )
+    global = global_df, item_level = item_level_df, parameters = param_list,
+    n_items = n_items, alpha = alpha, p_adjust = p_adjust,
+    global_p_adjust = global_p_adjust, rs_threshold = rs_threshold)
   class(out) <- "rs_characterization"
-  return(out)
+  out
 }
-
-
 #' Print Method for Response Shift Characterization Results
 #'
 #' Displays a formatted summary of response shift characterization results
@@ -776,22 +594,26 @@ print.rs_characterization <- function(x, ...) {
                                " ***", "")
 
       for (j in 1:nrow(node_items)) {
+        mag <- if ("RS_magnitude" %in% names(node_items)) node_items$RS_magnitude[j] else NA
+        mag_txt <- if (!is.na(mag)) paste0(" [", mag, "]") else ""
         if (has_adj) {
-          cat(sprintf("  Item %2d: chi2 = %7.3f, df = %d, p = %.6f, p_adj = %.6f  %-25s%s\n",
+          cat(sprintf("  Item %2d: chi2 = %7.3f, df = %d, p = %.6f, p_adj = %.6f  %-18s%s%s\n",
                       node_items$Item[j],
                       node_items$LRT_chi2[j],
                       node_items$LRT_df[j],
                       node_items$LRT_p[j],
                       node_items$LRT_p_adj[j],
                       node_items$RS_type[j],
+                      mag_txt,
                       node_items$Sig[j]))
         } else {
-          cat(sprintf("  Item %2d: chi2 = %7.3f, df = %d, p = %.6f  %-25s%s\n",
+          cat(sprintf("  Item %2d: chi2 = %7.3f, df = %d, p = %.6f  %-18s%s%s\n",
                       node_items$Item[j],
                       node_items$LRT_chi2[j],
                       node_items$LRT_df[j],
                       node_items$LRT_p[j],
                       node_items$RS_type[j],
+                      mag_txt,
                       node_items$Sig[j]))
         }
       }

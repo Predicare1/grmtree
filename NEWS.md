@@ -16,6 +16,15 @@
   results are unchanged.
 * Adjust `longitudinal_grmtree()` to restrict the split test to ITEM parameters 
   (measurement invariance) and not include the structural parameters.
+* Corrected item-level testing in `rs_characterize()`. Item-level tests now run
+  only in nodes with omnibus response shift detected after the across-node
+  adjustment (`RS_detected`), instead of the unadjusted p-value, so no item rows
+  are produced for nodes that are not significant family-wise. The shift type is
+  now read from the estimated item-parameter changes (occasion-general
+  discrimination and thresholds) rather than a magnitude cut-point: a
+  significant item is always classified as recalibration, reprioritization, or
+  both, the "Significant (small effect)" label is removed, and the effect-size
+  magnitude is reported separately in a new `RS_magnitude` column.
 * Corrected the response-shift visualizations `plot_rs_tree()` and
   `plot_rs_heatmap()`. Both now display p-values in fixed notation (e.g.
   "p < 0.001") rather than scientific notation, label the latent parameters as

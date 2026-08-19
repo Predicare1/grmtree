@@ -24,39 +24,45 @@ rs_characterize(
 \code{NULL} (default), all terminal nodes are analyzed.}
 
 \item{item_level}{Logical. If \code{TRUE} (default), perform item-level RS
-testing by sequentially freeing one item at a time from the constrained
-model. Only performed for nodes where the omnibus test is significant.}
+testing. It is performed \strong{only} for nodes whose omnibus RS is
+detected \emph{after} \code{global_p_adjust} (i.e. \code{RS_detected ==
+  TRUE}); nodes that are not significant after adjustment are skipped
+entirely, so no item rows are produced for them.}
 
-\item{alpha}{Numeric significance level for RS tests. Default is 0.05.
-Used for both omnibus and item-level significance decisions (after any
-p-value adjustments).}
+\item{alpha}{Numeric significance level for RS tests. Default \code{0.05}.
+Used for the omnibus decision (after \code{global_p_adjust}), the item
+detection decision (after \code{p_adjust}), and the component tests that
+assign the RS type.}
 
-\item{p_adjust}{Character string specifying the method for adjusting
-item-level p-values \strong{within each node}. Controls the error rate
-when testing multiple items for RS within a single subgroup. Options:
-\code{"bonferroni"} (default), \code{"holm"}, \code{"BH"}
+\item{p_adjust}{Character string specifying the method for adjusting the
+\strong{item detection} p-values \strong{within each node}. Controls the
+error rate when testing multiple items for RS within a single subgroup.
+Options: \code{"bonferroni"} (default), \code{"holm"}, \code{"BH"}
 (Benjamini-Hochberg), \code{"BY"}, \code{"fdr"}, \code{"hochberg"},
-\code{"hommel"}, or \code{"none"}. See \code{\link[stats]{p.adjust}}.}
+\code{"hommel"}, or \code{"none"}. See \code{\link[stats]{p.adjust}}. FDR
+is recommended for the exploratory item search.}
 
 \item{global_p_adjust}{Character string specifying the method for adjusting
-omnibus RS p-values \strong{across terminal nodes}. Controls the
-family-wise error rate when testing RS in multiple subgroups. Options
-are the same as \code{p_adjust}. Default is \code{"bonferroni"}.
-The \code{RS_detected} column in the global results is updated based
-on adjusted p-values. Only applied when there are 2 or more nodes.}
+the omnibus RS p-values \strong{across terminal nodes}. Controls the
+family-wise error rate when testing RS in multiple subgroups. Options are
+the same as \code{p_adjust}. Default \code{"bonferroni"}. The
+\code{RS_detected} column is set from these adjusted p-values, and it is
+\code{RS_detected} that gates item-level testing. Only applied when there
+are two or more nodes.}
 
-\item{rs_threshold}{Numeric threshold for classifying the magnitude of
-parameter change in RS type determination, on the IRT parameter scale.
-Default is 0.3. A discrimination difference exceeding this threshold
-indicates reprioritization; a maximum threshold difference exceeding
-this indicates recalibration. Larger values produce more conservative
-classifications (fewer items classified as showing meaningful RS).
-Items that are statistically significant but below this threshold are
-classified as \code{"Significant (small effect)"}.}
+\item{rs_threshold}{Numeric magnitude threshold on the IRT parameter scale,
+used \strong{only for the descriptive effect-size annotation}
+(\code{RS_magnitude}), \strong{not} for deciding the RS type. Default
+\code{0.3}. A flagged item is annotated \code{"large"} when its larger
+parameter change (max threshold shift or absolute discrimination change)
+is at least \code{rs_threshold}, and \code{"small"} otherwise. The type
+itself is always determined by the component LRTs (see Details), so the
+choice of \code{rs_threshold} never changes which items are flagged or how
+they are typed; it only affects the type label when both changes are
+sub-threshold, and the \code{RS_magnitude} annotation.}
 
 \item{verbose}{Logical. If \code{TRUE} (default), print progress messages
-including log-likelihoods, LRT statistics, and RS classifications for
-each node during processing.}
+for each node during processing.}
 
 \item{...}{Additional arguments passed to \code{\link[mirt]{mirt}} during
 model fitting.}
@@ -67,239 +73,201 @@ A list of class \code{"rs_characterization"} containing:
 \item{\code{global}}{A \code{data.frame} with one row per terminal node
 and columns:
 \describe{
-\item{\code{Node}}{Terminal node ID}
-\item{\code{n}}{Sample size in the node}
+\item{\code{Node}}{Terminal node ID.}
+\item{\code{n}}{Sample size in the node.}
 \item{\code{LL_constrained}}{Log-likelihood of the constrained
-(no-RS) model}
+(no-RS) model.}
 \item{\code{LL_unconstrained}}{Log-likelihood of the unconstrained
-(RS-allowed) model}
-\item{\code{LRT_chi2}}{Likelihood ratio test statistic:
-\eqn{-2(LL_{con} - LL_{uncon})}}
+(RS-allowed) model.}
+\item{\code{LRT_chi2}}{Omnibus LRT statistic
+\eqn{-2(\ell_{con} - \ell_{uncon})}.}
 \item{\code{LRT_df}}{Degrees of freedom (number of freed
-constraints)}
-\item{\code{LRT_p}}{Raw p-value from chi-squared distribution}
-\item{\code{LRT_p_adj}}{Adjusted p-value (present only if
-\code{global_p_adjust != "none"} and there are 2+ nodes)}
-\item{\code{RS_detected}}{Logical: whether RS is detected at
-the specified \code{alpha} level (uses adjusted p if available)}
-\item{\code{pseudo_R2}}{McFadden's pseudo R-squared:
-\eqn{1 - LL_{uncon}/LL_{con}}}
-\item{\code{AIC_diff}}{AIC difference:
-\eqn{AIC_{con} - AIC_{uncon}}. Positive values indicate the
-unconstrained model fits better after parsimony penalty.}
-\item{\code{mu_T2}}{Latent mean shift at T2 from the constrained
-model. Positive = improvement, negative = decline.}
-\item{\code{sigma2_T2}}{Latent variance at T2}
-\item{\code{cor_T1_T2}}{Correlation between latent traits at T1
-and T2, reflecting stability of individual differences}
-\item{\code{converged_constrained}}{Logical: whether the
-constrained model converged}
-\item{\code{converged_unconstrained}}{Logical: whether the
-unconstrained model converged}
+constraints).}
+\item{\code{LRT_p}}{Raw omnibus p-value.}
+\item{\code{LRT_p_adj}}{Omnibus p-value adjusted across nodes
+(present only when \code{global_p_adjust != "none"} and there are
+two or more nodes).}
+\item{\code{RS_detected}}{Logical: whether omnibus RS is detected at
+\code{alpha} after adjustment. \strong{This flag gates item-level
+testing.}}
+\item{\code{pseudo_R2}}{McFadden's pseudo-\eqn{R^2},
+\eqn{1 - \ell_{uncon}/\ell_{con}}.}
+\item{\code{AIC_diff}}{\eqn{AIC_{con} - AIC_{uncon}}; positive
+favours the unconstrained model.}
+\item{\code{mu_T2}}{Latent mean shift at T2 (constrained model).}
+\item{\code{sigma2_T2}}{Latent variance at T2.}
+\item{\code{cor_T1_T2}}{Test-retest correlation of the latent trait.}
+\item{\code{converged_constrained}, \code{converged_unconstrained}}{
+Convergence flags for the two models.}
 }
 }
-\item{\code{item_level}}{A \code{data.frame} with item-level RS test
-results (one row per item per node where omnibus RS was detected),
-with columns:
+\item{\code{item_level}}{A \code{data.frame} of item-level results, one
+row per item \strong{only for RS-detected nodes} (\code{NULL} if no
+node was detected or \code{item_level = FALSE}):
 \describe{
-\item{\code{Node}}{Terminal node ID}
-\item{\code{Item}}{Item number (1 to \code{n_items})}
-\item{\code{LRT_chi2}}{LRT statistic for freeing this item}
-\item{\code{LRT_df}}{Degrees of freedom (1 discrimination +
-thresholds for this item)}
-\item{\code{LRT_p}}{Raw p-value}
-\item{\code{LRT_p_adj}}{Adjusted p-value (if \code{p_adjust !=
-          "none"})}
-\item{\code{RS_type}}{Classification: \code{"Recalibration"},
-\code{"Reprioritization"}, \code{"Both"},
-\code{"Significant (small effect)"}, or \code{"None"}}
+\item{\code{Node}, \code{Item}}{Node ID and item number (1..M).}
+\item{\code{LRT_chi2}, \code{LRT_df}, \code{LRT_p}}{The \emph{joint}
+item test (free this item's discrimination and thresholds vs the
+constrained model): statistic, df \eqn{= K} (1 discrimination plus
+\eqn{K-1} thresholds), and raw p-value. This is the item
+\emph{detection} test.}
+\item{\code{LRT_p_adj}}{Joint p-value adjusted across items within
+the node (\code{p_adjust}); an item is flagged when this is below
+\code{alpha}.}
+\item{\code{RS_type}}{\code{"Recalibration"}, \code{"Reprioritization"},
+\code{"Both"}, or \code{"None"} -- determined by the component LRTs
+(see Details), never by a magnitude cut-point.}
+\item{\code{discr_diff}, \code{thresh_diff}}{Effect sizes: the
+absolute T1-vs-T2 discrimination change and the maximum absolute
+threshold change (reported, not used to decide the type).}
+\item{\code{RS_magnitude}}{\code{"large"}/\code{"small"} annotation
+of a flagged item's effect size against \code{rs_threshold}
+(\code{NA} for unflagged items).}
 }
-\code{NULL} if no nodes showed significant omnibus RS or
-\code{item_level = FALSE}.
 }
-\item{\code{parameters}}{A named list (one element per node) of lists
-containing \code{constrained} and \code{unconstrained} item parameter
-matrices (IRT parameterization with discrimination \code{a1}/\code{a2}
-and thresholds \code{b1}, ..., \code{bK}).}
-\item{\code{n_items}}{Number of items per time point.}
-\item{\code{alpha}}{Significance level used.}
-\item{\code{p_adjust}}{Item-level p-value adjustment method.}
-\item{\code{global_p_adjust}}{Omnibus p-value adjustment method.}
-\item{\code{rs_threshold}}{RS classification threshold.}
+\item{\code{parameters}}{A named list (one element per node) of
+\code{constrained} and \code{unconstrained} item-parameter matrices
+(IRT parameterization).}
+\item{\code{n_items}, \code{alpha}, \code{p_adjust},
+\code{global_p_adjust}, \code{rs_threshold}}{The settings used.}
 }
 }
 \description{
 After fitting a \code{\link{longitudinal_grmtree}} (Phase 1), this function
 performs Phase 2: post-hoc response shift (RS) characterization within each
-terminal node. For each subgroup identified by the tree, it compares the
+terminal node. For each subgroup identified by the tree it compares the
 constrained model (no RS: item parameters equal across time) to an
-unconstrained model (item parameters free across time) using likelihood
-ratio tests (LRTs), then identifies which specific items exhibit response
-shift and classifies the type of shift.
+unconstrained model (item parameters free across time) with a likelihood
+ratio test (LRT); then, \emph{only in nodes where the omnibus test survives
+the across-node adjustment}, it tests each item for RS and classifies the
+\emph{type} of shift by nested LRTs on the item's parameter sets.
 }
 \details{
-\subsection{The Two-Phase Framework}{
+\subsection{The two-phase framework}{
 
-The Longitudinal GRMTree operates as an integrated two-phase method:
-
-\strong{Phase 1 (\code{\link{longitudinal_grmtree}}):} Embeds a constrained
-longitudinal GRM (item parameters equal across T1 and T2) within
-model-based recursive partitioning. The tree identifies patient subgroups
-requiring different constrained measurement models. This ensures that
-subsequent RS testing is conducted within measurement-homogeneous groups.
-
-\strong{Phase 2 (this function):} Within each terminal node, relaxes the
-equality constraint and tests whether item parameters actually change over
-time. This separates between-group measurement heterogeneity (captured by
-the tree) from within-group temporal change (response shift).
+Phase 1 (\code{\link{longitudinal_grmtree}}) embeds a constrained
+longitudinal GRM (item parameters equal across T1 and T2) in model-based
+recursive partitioning, identifying subgroups that require different
+\emph{constrained} measurement models. Phase 2 (this function) relaxes the
+equality constraints within each subgroup and asks whether item parameters
+actually change over time. This separates between-group measurement
+heterogeneity (captured by the tree) from within-group temporal change
+(response shift).
 }
 
-\subsection{Omnibus RS Test}{
+\subsection{Omnibus test and the gate on item-level testing}{
 
-For each terminal node, the function fits two models to the node's data:
-\enumerate{
-\item \strong{Constrained model:} Item parameters are equal across T1
-and T2 (no response shift). This model has the same structure as the
-model fitted during Phase 1.
-\item \strong{Unconstrained model:} Item parameters are free to differ
-between T1 and T2 (response shift allowed). All equality constraints
-on discrimination and threshold parameters are removed.
+For each terminal node, a constrained model (all item parameters equal across
+waves) and an unconstrained model (all free) are fitted and compared by
+\deqn{\chi^2 = -2(\ell_{con} - \ell_{uncon}), \qquad
+      \mathrm{df} = \#\{\text{freed constraints}\}.}
+The omnibus p-values are then adjusted \strong{across nodes}
+(\code{global_p_adjust}) and \code{RS_detected} is set from the adjusted
+p-value. \strong{Item-level testing is performed only for nodes with}
+\code{RS_detected == TRUE}: a node that is not significant after adjustment is
+skipped, so it contributes no item rows. This is a deliberate two-pass design
+(all omnibus tests first, then adjustment, then item-level only where
+warranted) and it guarantees that the item-level results are consistent with
+the omnibus decision.
 }
 
-The likelihood ratio test statistic is:
-\deqn{\chi^2 = -2(LL_{constrained} - LL_{unconstrained})}
+\subsection{Item detection}{
 
-with degrees of freedom equal to the number of freed constraints
-(typically \eqn{M \times K} for \eqn{M} items with \eqn{K-1} thresholds
-each, plus \eqn{M} discrimination parameters).
+Within an RS-detected node, each item is first tested for \emph{any} shift by
+a \emph{joint} LRT that frees that item's discrimination \emph{and}
+thresholds against the constrained model (df \eqn{= K}: one discrimination
+plus \eqn{K-1} thresholds). These joint p-values are adjusted across the
+items in the node (\code{p_adjust}); an item is \strong{flagged} when its
+adjusted joint p-value is below \code{alpha}. Unflagged items are
+\code{"None"}.
 }
 
-\subsection{Item-Level RS Testing}{
+\subsection{Type from the estimated parameter changes (not a confounded LRT)}{
 
-When the omnibus test is significant, each item is tested individually by
-freeing only that item's constraints while keeping all other items
-constrained. The LRT compares the fully constrained model to the partially
-constrained model with one item freed. This identifies which specific
-items contribute to the overall response shift.
+Once an item is flagged, its \emph{type} is read from the estimated
+T1-versus-T2 changes on the IRT (a, b) metric: the absolute discrimination
+change (\code{discr_diff}) indicates \strong{reprioritization} and the
+maximum absolute threshold change (\code{thresh_diff}) indicates
+\strong{recalibration}; both large is \strong{Both}. A flagged item is always
+given a real type -- if both changes are below \code{rs_threshold} it takes
+the larger one, so a significant item is never left untyped.
+
+This is deliberate. A tempting alternative -- decomposing the shift with
+nested LRTs that free the discrimination or the thresholds in turn -- does
+\strong{not} work here, because \pkg{mirt} parameterizes the graded model in
+slope-intercept form where the intercept \eqn{d = -a\,b}. A \emph{pure}
+discrimination change (\eqn{a} moves, \eqn{b} constant) therefore forces the
+intercepts to move, so any LRT that frees the intercepts fires for a
+reprioritization item, spuriously flagging recalibration. The estimated
+\eqn{a} and \eqn{b} changes, in contrast, separate the two shift types
+cleanly (\eqn{b = -d/a} un-confounds them), which is why the type is read
+from them. Detection remains a likelihood-ratio test; only the attribution of
+\emph{which} parameter moved uses the estimated changes, and both are
+reported (\code{discr_diff}, \code{thresh_diff}, \code{RS_magnitude}) so the
+classification is fully transparent.
+
+Separating \emph{detection} (is there a shift? -- LRT), \emph{type} (which
+parameter moved? -- estimated change), and \emph{magnitude} (how large? --
+effect size) is the point of the redesign.
 }
 
-\subsection{RS Type Classification}{
+\subsection{Hierarchical error control}{
 
-For items showing statistically significant RS (after p-value adjustment),
-the type is classified by examining the freed item's T1 vs T2 parameters
-from the partially constrained model:
-
-\describe{
-\item{\strong{Recalibration}}{Maximum absolute threshold difference
-exceeds \code{rs_threshold}. Interpretation: the patient's internal
-standards for endorsing response categories changed over time
-(Sprangers & Schwartz, 1999).}
-\item{\strong{Reprioritization}}{Absolute discrimination difference
-exceeds \code{rs_threshold}. Interpretation: the item's relationship
-to the underlying latent construct changed over time --- the item
-became more or less central to the construct.}
-\item{\strong{Both}}{Both discrimination and threshold changes exceed
-\code{rs_threshold}.}
-\item{\strong{Significant (small effect)}}{The LRT is significant but
-neither parameter change exceeds \code{rs_threshold}. The RS is
-statistically detectable but small in magnitude.}
-}
+Two adjustment layers are applied: \code{global_p_adjust} across nodes for
+"in which subgroups does RS occur?" (default Bonferroni), and \code{p_adjust}
+across items within a node for "which items shift?" (default Bonferroni; FDR
+recommended for exploration). The component tests that assign the type are a
+post-hoc decomposition of an already-flagged item and are read at
+\code{alpha}.
 }
 
-\subsection{Hierarchical P-Value Correction}{
+\subsection{Effect sizes}{
 
-The function implements a two-level correction strategy:
-\enumerate{
-\item \strong{Across nodes (omnibus):} \code{global_p_adjust} controls
-the family-wise error rate for the question "in which subgroups does
-RS occur?" Default is Bonferroni.
-\item \strong{Within nodes (item-level):} \code{p_adjust} controls the
-error rate for the question "which items exhibit RS within a given
-subgroup?" Default is Bonferroni; FDR (Benjamini-Hochberg) is
-recommended for exploratory analyses.
-}
-}
-
-\subsection{Effect Size Measures}{
-
-\describe{
-\item{McFadden's pseudo R-squared}{\eqn{1 - LL_{uncon}/LL_{con}}.
-Inherently small (~0.02) in IRT models because item parameters
-account for only a fraction of the total likelihood. Values should
-be compared across nodes rather than interpreted in absolute terms.}
-\item{AIC difference}{\eqn{AIC_{con} - AIC_{uncon}}. Positive values
-indicate the unconstrained model fits better even after penalizing
-for additional parameters. Negative values suggest the constrained
-model is preferred (response shift is not substantial enough to
-justify the additional parameters).}
-}
+McFadden's pseudo-\eqn{R^2} \eqn{= 1 - \ell_{uncon}/\ell_{con}} is inherently
+small in IRT (~0.02) and is best compared across nodes. \eqn{AIC_{con} -
+AIC_{uncon}} is positive when the unconstrained model is preferred after the
+parsimony penalty. Item-level \code{discr_diff} and \code{thresh_diff} give
+the raw magnitude of the T1-vs-T2 parameter changes.
 }
 }
 \examples{
 \dontshow{if (interactive()) withAutoprint(\{ # examplesIf}
 library(grmtree)
-
-# Load the synthetic longitudinal data
 data("grmtree_long_data", package = "grmtree")
+items_t1 <- c("MOS_Listen", "MOS_Info", "MOS_Advice_Crisis", "MOS_Confide",
+              "MOS_Advice_Want", "MOS_Fears", "MOS_Personal", "MOS_Understand")
+ld <- prepare_longitudinal_data(
+  data = grmtree_long_data, items_t1 = items_t1,
+  items_t2 = paste0(items_t1, "_year1"),
+  covariates = c("sex", "age", "residency", "job",
+                 "education", "comorbidity_count", "ever_smoker"))
+ltree <- longitudinal_grmtree(
+  resp_wide ~ sex + age + residency + job +
+    education + comorbidity_count + ever_smoker,
+  data = ld, n_items = 8, control = grmtree.control(minbucket = 200))
 
-  # Prepare the wide-format response matrix
-  items_t1 <- c("MOS_Listen", "MOS_Info", "MOS_Advice_Crisis", "MOS_Confide",
-                "MOS_Advice_Want", "MOS_Fears", "MOS_Personal", "MOS_Understand")
-  ld <- prepare_longitudinal_data(
-    data = grmtree_long_data,
-    items_t1 = items_t1,
-    items_t2 = paste0(items_t1, "_year1"),
-    covariates = c("sex", "age", "residency", "job",
-                   "education", "comorbidity_count", "ever_smoker")
-  )
+# Default: Bonferroni across nodes and within-node; type from component LRTs
+rs <- rs_characterize(ltree)
+print(rs)
 
-  # After fitting the tree (Phase 1)
-  ltree <- longitudinal_grmtree(
-    resp_wide ~ sex + age + residency + job +
-      education + comorbidity_count + ever_smoker,
-    data = ld, n_items = 8,
-    control = grmtree.control(minbucket = 200)
-  )
+# FDR for the item search, Bonferroni across nodes
+rs <- rs_characterize(ltree, p_adjust = "fdr", global_p_adjust = "bonferroni")
 
-  # Phase 2: characterize response shift within each subgroup
-  rs <- rs_characterize(ltree, p_adjust = "fdr",
-    global_p_adjust = "bonferroni")
-  print(rs)
-
-  # Phase 2: Characterize RS
-  # Default: Bonferroni at both levels, threshold = 0.3
-  rs <- rs_characterize(ltree)
-
-  # Recommended: FDR for item-level, Bonferroni for omnibus
-  rs <- rs_characterize(ltree,
-    p_adjust = "fdr",
-    global_p_adjust = "bonferroni",
-    rs_threshold = 0.3
-  )
-
-  # No omnibus correction (each node tested independently)
-  rs <- rs_characterize(ltree, global_p_adjust = "none")
-
-  # More conservative RS classification
-  rs <- rs_characterize(ltree, rs_threshold = 0.5)
-
-  # View results
-  print(rs)
-
-  # Access components
-  rs$global         # Omnibus results per node
-  rs$item_level     # Item-level results
-  rs$parameters     # Raw parameter matrices
+rs$global      # omnibus per node (RS_detected gates the item tests)
+rs$item_level  # item detection + type + effect sizes, for detected nodes only
 \dontshow{\}) # examplesIf}
 }
 \references{
-Sprangers, M. A., & Schwartz, C. E. (1999). Integrating response shift
-into health-related quality of life research. \emph{Social Science &
-Medicine}, 48(11), 1507--1515.
+Oort, F. J. (2005). Using structural equation modeling to detect response
+shifts and true change. \emph{Quality of Life Research}, 14(3), 587--598.
 
-Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery
-rate: a practical and powerful approach to multiple testing. \emph{Journal
-of the Royal Statistical Society: Series B}, 57(1), 289--300.
+Sprangers, M. A. G., & Schwartz, C. E. (1999). Integrating response shift
+into health-related quality of life research: a theoretical model.
+\emph{Social Science & Medicine}, 48(11), 1507--1515.
+
+Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery rate:
+a practical and powerful approach to multiple testing. \emph{Journal of the
+Royal Statistical Society: Series B}, 57(1), 289--300.
 }
 \seealso{
 \code{\link{longitudinal_grmtree}} for Phase 1 (tree fitting),
