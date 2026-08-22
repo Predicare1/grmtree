@@ -292,11 +292,9 @@
 #' a manageable number of candidate cut points before fitting; raise
 #' `minbucket`; set `mtry`; and increase `n_cores`.
 #'
-#' @examples
-#'
-#' \donttest{
-#'   library(grmtree)
-#'   library(hlt)
+#' @examplesIf interactive()
+#' library(grmtree)
+#' library(hlt)
 #'   data("asti", package = "hlt")
 #'   asti$resp <- data.matrix(asti[, 1:4])
 #'
@@ -306,7 +304,6 @@
 #'   # Fit with custom control
 #'   ctrl <- grmforest.control(n_tree = 20, sampling = "subsample")
 #'   forest <- grmforest(resp ~ gender + group, data = asti, control = ctrl)
-#' }
 #'
 #' @seealso \code{\link{grmtree}} fits a Graded Response Model Tree,
 #'   \code{\link{grmtree.control}} creates a control object for `grmtree`,
@@ -472,10 +469,9 @@ print.grmforest <- function(x, ...) {
 #' If you grow chunks separately, give each chunk a different `seed`, otherwise
 #' every chunk will contain the same trees.
 #'
-#' @examples
-#' \donttest{
-#'   library(grmtree)
-#'   library(hlt)
+#' @examplesIf interactive()
+#' library(grmtree)
+#' library(hlt)
 #'   data("asti", package = "hlt")
 #'   asti$resp <- data.matrix(asti[, 1:4])
 #'
@@ -485,7 +481,6 @@ print.grmforest <- function(x, ...) {
 #'                   control = grmforest.control(n_tree = 5, seed = 2))
 #'   big <- c(f1, f2)
 #'   print(big)
-#' }
 #'
 #' @seealso \code{\link{grmforest}} for GRM Forests, \code{\link{varimp}}
 #'   calculates the variable importance for GRM Forest

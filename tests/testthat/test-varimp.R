@@ -13,6 +13,7 @@ make_forest <- function(n_tree = 4, seed = 1) {
 
 ## ---- basic behaviour -----------------------------------------------------
 test_that("varimp returns a named varimp vector", {
+  skip_on_cran()
   skip_if_not_installed("mirt")
   skip_if_not_installed("hlt")
   forest <- make_forest()
@@ -25,6 +26,7 @@ test_that("varimp returns a named varimp vector", {
 })
 
 test_that("varimp is reproducible for a fixed seed", {
+  skip_on_cran()
   skip_if_not_installed("mirt")
   skip_if_not_installed("hlt")
   forest <- make_forest()
@@ -32,6 +34,7 @@ test_that("varimp is reproducible for a fixed seed", {
 })
 
 test_that("varimp verbose reports progress", {
+  skip_on_cran()
   skip_if_not_installed("mirt")
   skip_if_not_installed("hlt")
   forest <- make_forest()
@@ -40,6 +43,7 @@ test_that("varimp verbose reports progress", {
 
 ## ---- input validation ----------------------------------------------------
 test_that("varimp validates its inputs", {
+  skip_on_cran()
   skip_if_not_installed("mirt")
   skip_if_not_installed("hlt")
   forest <- make_forest()
@@ -50,6 +54,7 @@ test_that("varimp validates its inputs", {
 })
 
 test_that("varimp rejects legacy forests without oob_indices", {
+  skip_on_cran()
   skip_if_not_installed("mirt")
   skip_if_not_installed("hlt")
   data("asti", package = "hlt")
@@ -64,6 +69,7 @@ test_that("varimp rejects legacy forests without oob_indices", {
 })
 
 test_that("varimp returns zeros when no tree yields a usable OOB likelihood", {
+  skip_on_cran()
   skip_if_not_installed("mirt")
   skip_if_not_installed("hlt")
   data("asti", package = "hlt")
@@ -87,6 +93,7 @@ test_that("varimp returns zeros when no tree yields a usable OOB likelihood", {
 
 ## ---- print / plot --------------------------------------------------------
 test_that("print.varimp works", {
+  skip_on_cran()
   skip_if_not_installed("mirt")
   skip_if_not_installed("hlt")
   imp <- varimp(make_forest(), seed = 1)
@@ -94,6 +101,7 @@ test_that("print.varimp works", {
 })
 
 test_that("plot.varimp runs", {
+  skip_on_cran()
   skip_if_not_installed("mirt")
   skip_if_not_installed("hlt")
   imp <- varimp(make_forest(), seed = 1)

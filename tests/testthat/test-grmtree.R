@@ -5,6 +5,7 @@ library(mirt)
 
 ## Test that grmtree works as expected
 test_that("grmtree produces correct object structure", {
+  skip_on_cran()
   skip_if_not_installed("mirt")
   skip_if_not_installed("hlt")
 

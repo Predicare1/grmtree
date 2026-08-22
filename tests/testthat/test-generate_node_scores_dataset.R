@@ -17,6 +17,7 @@ library(mirt)
 # 1. Cross-sectional grmtree
 # ==============================================================================
 test_that("generate_node_scores_dataset works for cross-sectional grmtree", {
+  skip_on_cran()
   skip_if_not_installed("mirt")
   skip_if_not_installed("hlt")
 
@@ -43,6 +44,7 @@ test_that("generate_node_scores_dataset works for cross-sectional grmtree", {
 })
 
 test_that("generate_node_scores_dataset accepts all scoring methods", {
+  skip_on_cran()
   skip_if_not_installed("mirt")
   skip_if_not_installed("hlt")
 
@@ -64,6 +66,7 @@ test_that("generate_node_scores_dataset accepts all scoring methods", {
 # 2. Input validation
 # ==============================================================================
 test_that("generate_node_scores_dataset validates its inputs", {
+  skip_on_cran()
   skip_if_not_installed("mirt")
   skip_if_not_installed("hlt")
 

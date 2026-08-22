@@ -83,10 +83,9 @@ a manageable number of candidate cut points before fitting; raise
 }
 
 \examples{
-
-\donttest{
-  library(grmtree)
-  library(hlt)
+\dontshow{if (interactive()) withAutoprint(\{ # examplesIf}
+library(grmtree)
+library(hlt)
   data("asti", package = "hlt")
   asti$resp <- data.matrix(asti[, 1:4])
 
@@ -96,8 +95,7 @@ a manageable number of candidate cut points before fitting; raise
   # Fit with custom control
   ctrl <- grmforest.control(n_tree = 20, sampling = "subsample")
   forest <- grmforest(resp ~ gender + group, data = asti, control = ctrl)
-}
-
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link{grmtree}} fits a Graded Response Model Tree,

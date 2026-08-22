@@ -5,7 +5,7 @@ library(mirt)
 
 ## Test that discrpar_grmtree works as expected
 test_that("discrpar_grmtree works with valid inputs", {
-
+  skip_on_cran()
   skip_if_not_installed("mirt")
   skip_if_not_installed("hlt")
 
@@ -37,6 +37,7 @@ test_that("discrpar_grmtree works with valid inputs", {
 
 ## Test that discrpar_grmtree handles errors appropriately
 test_that("discrpar_grmtree handles errors appropriately", {
+  skip_on_cran()
   skip_if_not_installed("mirt")
   skip_if_not_installed("hlt")
 
@@ -70,6 +71,7 @@ test_that("discrpar_grmtree handles errors appropriately", {
 
 ## Test that discrimination parameters are reasonable
 test_that("discrimination parameters are reasonable", {
+  skip_on_cran()
   skip_if_not_installed("mirt")
   skip_if_not_installed("hlt")
 

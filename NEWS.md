@@ -1,4 +1,4 @@
-# grmtree 0.2.1
+# grmtree 0.2.2
 
 ## Bug fixes
 

@@ -23,9 +23,9 @@ Creates a bar plot of variable importance scores with options for both
 ggplot2 and base R graphics.
 }
 \examples{
-\donttest{
- library(grmtree)
- library(hlt)
+\dontshow{if (interactive()) withAutoprint(\{ # examplesIf}
+library(grmtree)
+library(hlt)
  data("asti", package = "hlt")
  asti$resp <- data.matrix(asti[, 1:4])
 
@@ -35,8 +35,7 @@ ggplot2 and base R graphics.
  plot(imp)
  plot(imp, top_n = 1) ## select top 1 importance variable
  plot(imp, use_ggplot = FALSE) # Use base R graphics
-}
-
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link{varimp}} calculates the variable importance for GRM

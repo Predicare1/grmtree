@@ -5,6 +5,7 @@ library(hlt)
 
 ## Test that itempar_grmtree works with valid inputs
 test_that("itempar_grmtree works with valid inputs", {
+  skip_on_cran()
   skip_if_not_installed("mirt")
   skip_if_not_installed("hlt")
 
@@ -41,6 +42,7 @@ test_that("itempar_grmtree works with valid inputs", {
 
 ## Test that itempar_grmtree handles errors appropriately
 test_that("itempar_grmtree handles errors appropriately", {
+  skip_on_cran()
   skip_if_not_installed("mirt")
   skip_if_not_installed("hlt")
 
@@ -73,6 +75,7 @@ test_that("itempar_grmtree handles errors appropriately", {
 
 ## Test that item parameters are consistent with thresholds
 test_that("item parameters are consistent with thresholds", {
+  skip_on_cran()
   skip_if_not_installed("mirt")
   skip_if_not_installed("hlt")
 

@@ -1,3 +1,9 @@
+## Resubmission of 0.2.1 (now 0.2.2)
+
+* Reduced test and vignette check time so overall check time is well under 10 minutes. 
+  Removed the gnu.org license URL from README (replaced with the CRAN license page) 
+  to avoid the transient connection timeout flagged in the pre-test.
+
 ## Submission of version 0.2.1
 This is a patch release of the CRAN package `grmtree` with bug fixes to the
 GRM Forest functions. No user-facing API changes.

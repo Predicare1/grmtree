@@ -51,8 +51,7 @@
 #' signal to collapse sparse categories deliberately before fitting, or to
 #' raise `minbucket`.
 #'
-#' @examples
-#' \donttest{
+#' @examplesIf interactive()
 #' library(grmtree)
 #' library(hlt)
 #' data("asti", package = "hlt")
@@ -67,7 +66,6 @@
 #' ## Print and plot the variable importance scores
 #' print(importance)
 #' plot(importance)
-#' }
 #'
 #' @seealso \code{\link{grmtree}} fits a Graded Response Model Tree,
 #'   \code{\link{grmforest}} for GRM Forests, \code{\link{grmforest.control}}

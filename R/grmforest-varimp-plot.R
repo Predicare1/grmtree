@@ -11,10 +11,9 @@
 #'
 #' @return Invisibly returns the input object.
 #'
-#' @examples
-#' \donttest{
-#'  library(grmtree)
-#'  library(hlt)
+#' @examplesIf interactive()
+#' library(grmtree)
+#' library(hlt)
 #'  data("asti", package = "hlt")
 #'  asti$resp <- data.matrix(asti[, 1:4])
 #'
@@ -24,7 +23,6 @@
 #'  plot(imp)
 #'  plot(imp, top_n = 1) ## select top 1 importance variable
 #'  plot(imp, use_ggplot = FALSE) # Use base R graphics
-#' }
 #'
 #' @seealso \code{\link{varimp}} calculates the variable importance for GRM
 #' Forest, \code{\link{grmforest}} for GRM Forests,

@@ -29,9 +29,9 @@ If you grow chunks separately, give each chunk a different \code{seed}, otherwis
 every chunk will contain the same trees.
 }
 \examples{
-\donttest{
-  library(grmtree)
-  library(hlt)
+\dontshow{if (interactive()) withAutoprint(\{ # examplesIf}
+library(grmtree)
+library(hlt)
   data("asti", package = "hlt")
   asti$resp <- data.matrix(asti[, 1:4])
 
@@ -41,8 +41,7 @@ every chunk will contain the same trees.
                   control = grmforest.control(n_tree = 5, seed = 2))
   big <- c(f1, f2)
   print(big)
-}
-
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link{grmforest}} for GRM Forests, \code{\link{varimp}}

@@ -77,7 +77,7 @@ raise \code{minbucket}.
 }
 
 \examples{
-\donttest{
+\dontshow{if (interactive()) withAutoprint(\{ # examplesIf}
 library(grmtree)
 library(hlt)
 data("asti", package = "hlt")
@@ -92,8 +92,7 @@ importance <- varimp(forest, seed = 123)
 ## Print and plot the variable importance scores
 print(importance)
 plot(importance)
-}
-
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link{grmtree}} fits a Graded Response Model Tree,

@@ -14,10 +14,9 @@
 #'   with columns: \item{Node}{Node ID} \item{Item}{Item name} \item{d1, d2,
 #'   ...}{Threshold parameters for each category}
 #'
-#' @examples
-#' \donttest{
-#'   library(grmtree)
-#'   library(hlt)
+#' @examplesIf interactive()
+#' library(grmtree)
+#' library(hlt)
 #'
 #'   data("asti", package = "hlt")
 #'   asti$resp <- data.matrix(asti[, 1:4])
@@ -31,7 +30,6 @@
 #'   thresholds <- threshpar_grmtree(tree)
 #'   print(thresholds)
 #'
-#' }
 #'
 #' @seealso \code{\link{grmtree}} fits a Graded Response Model Tree,
 #' \code{\link{grmforest}} for GRM Forests, \code{\link{fscores_grmtree}} for

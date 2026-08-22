@@ -123,7 +123,7 @@ fa.parallel(response_data$resp, fa = "fa")
 
 # Fit the graded response model (GRM)
 Having established unidimensionality, let's create the GRM.
-```{r}
+```{r, eval=FALSE}
 ## Create GRM
 mos_grm <- mirt(data = response_data$resp, 
                 model = 1,
@@ -134,7 +134,7 @@ mos_grm <- mirt(data = response_data$resp,
 **Note:** The argument `model = 1` means that default is 1, indicating that a unidimensional model will be fitted
 
 ## Fit Indices for the GRM
-```{r}
+```{r, eval=FALSE}
 ## Get the coefficients
 mos_coef <- coef(mos_grm, IRTpars = T, simplify = TRUE)
 mos_coef
@@ -196,8 +196,10 @@ resp.data$resp <- data.matrix(resp.data[, 1:8])
 grm_control <- grmtree.control(
   minbucket = 350,
   p_adjust = "BH", alpha = 0.05)
+```
 
 
+```{r, eval=FALSE}
 ## Fit the GRMTree model
 mos_grmtree <- grmtree(resp ~ sex + age + bmi + Education + depressed +
                        residency + job + multimorbidity + smoker,  
@@ -226,7 +228,7 @@ tree_holm <- grmtree(response ~ covariate1 + covariate2, data = df,
 ## Print the tree
 We can print the tree using the `print()` function. Note that using `print(mos_grmtree)` will print the tree with the item parameters. The code below also includes a way to print a simplified version of the tree showing only the nodes.
 
-```{r}
+```{r, eval=FALSE}
 ## Print the tree model
 print(mos_grmtree)
 print(mos_grmtree, FUN = function(x) " *")
@@ -234,7 +236,7 @@ print(mos_grmtree, FUN = function(x) " *")
 
 ## Plot the GRMTree
 Now, we can plot the tree using the `plot()` function. We have implemented several plotting options including plot the distribution of the factor scores in each node overlayed by a normal curve. See `?plot` for options of plots available.
-```{r}
+```{r, eval=FALSE}
 ## Create the regions plot (by default)
 plot(mos_grmtree)
 
@@ -254,7 +256,7 @@ plot(mos_grmtree, type = "profile", tnex = 2L, what = "item")
 
 You may also rename a covariate in the plot. Let's assume we want to rename the variable that splits at the root node from `age` to `Age`.
 
-```{r}
+```{r, eval=FALSE}
 ## Return the names of the covariates to know the position of age
 names(mos_grmtree$data)
 
@@ -269,7 +271,7 @@ More than one subgroup (terminal node) was identified, suggesting the presence o
 * Arimoro, O.I., Josephson, C.B., James, M.T. et al. Screening for depression in patients with epilepsy: same questions but different meaning to different patients. Qual Life Res 33, 3409–3419 (2024). https://doi.org/10.1007/s11136-024-03782-1.
 
 ## Extract item parameters for terminal nodes
-```{r}
+```{r, eval=FALSE}
 ## Extract and print the threshold parameters
 thresholds <- threshpar_grmtree(mos_grmtree)
 print(thresholds)

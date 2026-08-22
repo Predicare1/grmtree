@@ -26,9 +26,9 @@ trait continuum where the probability of scoring in adjacent response
 categories is equal.
 }
 \examples{
-\donttest{
-  library(grmtree)
-  library(hlt)
+\dontshow{if (interactive()) withAutoprint(\{ # examplesIf}
+library(grmtree)
+library(hlt)
 
   data("asti", package = "hlt")
   asti$resp <- data.matrix(asti[, 1:4])
@@ -42,8 +42,7 @@ categories is equal.
   thresholds <- threshpar_grmtree(tree)
   print(thresholds)
 
-}
-
+\dontshow{\}) # examplesIf}
 }
 \seealso{
 \code{\link{grmtree}} fits a Graded Response Model Tree,

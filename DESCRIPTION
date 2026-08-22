@@ -1,7 +1,7 @@
 Package: grmtree
 Title: Recursive Partitioning for Graded Response Models
-Version: 0.2.1
-Date: 2026-08-10
+Version: 0.2.2
+Date: 2026-08-22
 Authors@R: c(person(given = "Olayinka I.", family = "Arimoro", role = c("aut", "cre"), email = "olayinka.arimoro@ucalgary.ca", comment = c(ORCID = "0009-0009-9464-589X")),
              person(given = "Tolulope T.", family = "Sajobi", role = "aut", email = "ttsajobi@ucalgary.ca"),
              person(given = "Lisa M.", family = "Lix", role = "aut", email = "Lisa.Lix@umanitoba.ca"),

@@ -11,6 +11,7 @@ make_asti <- function() {
 
 ## ---- grmforest.control() -------------------------------------------------
 test_that("grmforest.control creates a valid control object", {
+  skip_on_cran()
   ctrl <- grmforest.control()
   expect_s3_class(ctrl, "grmforest_control")
   expect_equal(ctrl$n_tree, 100L)
@@ -51,6 +52,7 @@ test_that("grmforest fits and stores out-of-bag indices", {
 })
 
 test_that("grmforest reproduces across cores (indices identical)", {
+  skip_on_cran()
   skip_if_not_installed("mirt")
   skip_if_not_installed("hlt")
   asti <- make_asti()
@@ -65,6 +67,7 @@ test_that("grmforest reproduces across cores (indices identical)", {
 })
 
 test_that("grmforest validates its inputs", {
+  skip_on_cran()
   skip_if_not_installed("mirt")
   skip_if_not_installed("hlt")
   asti <- make_asti()
@@ -85,6 +88,7 @@ test_that("grmforest validates its inputs", {
 
 ## ---- print.grmforest -----------------------------------------------------
 test_that("print.grmforest works", {
+  skip_on_cran()
   skip_if_not_installed("mirt")
   skip_if_not_installed("hlt")
   asti <- make_asti()
@@ -97,6 +101,7 @@ test_that("print.grmforest works", {
 
 ## ---- c.grmforest ---------------------------------------------------------
 test_that("c.grmforest combines forests grown on the same data", {
+  skip_on_cran()
   skip_if_not_installed("mirt")
   skip_if_not_installed("hlt")
   asti <- make_asti()

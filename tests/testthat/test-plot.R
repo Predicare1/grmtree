@@ -4,6 +4,7 @@ library(hlt)
 
 ## Test that plot.grmtree works correctly
 test_that("plot.grmtree works correctly", {
+  skip_on_cran()
   skip_if_not_installed("mirt")
   skip_if_not_installed("hlt")
 
