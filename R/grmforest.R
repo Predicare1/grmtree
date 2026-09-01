@@ -151,6 +151,54 @@
 
 
 # ---------------------------------------------------------------------------
+# Internal: 2-D marginal log-likelihood of a longitudinal (two-factor) node
+# model. Same contract as .grm_node_loglik but integrates over the correlated
+# pair (theta_T1, theta_T2) ~ N(mu, Sigma) estimated at the node, with the
+# first n_items columns of y scored on theta_T1 and the next n_items on
+# theta_T2. Validated against mirt::logLik().
+# ---------------------------------------------------------------------------
+#' @keywords internal
+#' @noRd
+#' @importFrom mvtnorm dmvnorm
+.lgrm_node_loglik <- function(model, y, levels_list, n_items, quad) {
+  if (is.null(model) || nrow(y) == 0L) return(0)
+  tg <- quad$theta; nq <- length(tg); dt <- (max(tg) - min(tg)) / (nq - 1L)
+  co <- mirt::coef(model, simplify = TRUE)
+  mu <- as.numeric(co$means); Sig <- co$cov
+  M  <- n_items
+
+  accum <- function(cols, axis) {
+    m <- matrix(0, nrow(y), nq)
+    for (j in cols) {
+      it <- tryCatch(mirt::extract.item(model, j), error = function(e) NULL)
+      if (is.null(it)) next
+      Th <- if (axis == 1L) cbind(tg, 0) else cbind(0, tg)
+      P  <- tryCatch(mirt::probtrace(it, Th), error = function(e) NULL)
+      if (is.null(P) || any(!is.finite(P))) next
+      lev <- levels_list[[j]]; if (ncol(P) != length(lev)) next
+      k <- match(y[, j], lev); ok <- !is.na(k)
+      P <- pmax(P, .Machine$double.eps)
+      m[ok, ] <- m[ok, , drop = FALSE] + t(log(P))[k[ok], , drop = FALSE]
+    }
+    m
+  }
+  lp1 <- accum(seq_len(M), 1L)
+  lp2 <- accum((M + 1L):(2L * M), 2L)
+
+  g <- as.matrix(expand.grid(t1 = tg, t2 = tg))
+  logw2d <- matrix(mvtnorm::dmvnorm(g, mean = mu, sigma = Sig, log = TRUE) +
+                     2 * log(dt), nq, nq)
+
+  tot <- 0
+  for (i in seq_len(nrow(y))) {
+    Mi <- outer(lp1[i, ], lp2[i, ], "+") + logw2d
+    mx <- max(Mi); tot <- tot + mx + log(sum(exp(Mi - mx)))
+  }
+  tot
+}
+
+
+# ---------------------------------------------------------------------------
 # Internal: OOB marginal log-likelihood of one tree
 # ---------------------------------------------------------------------------
 #' @keywords internal
@@ -168,6 +216,9 @@
   )
   if (is.null(nodes) || length(nodes) != nrow(ef$y)) return(NA_real_)
 
+  is_long <- inherits(tree, "longitudinal_grmtree")
+  n_items <- if (is_long) tree$info$n_items else NULL
+
   ll <- 0
   for (id in unique(nodes)) {
     idx <- which(nodes == id)
@@ -177,8 +228,13 @@
       error = function(e) NULL
     )
     if (is.null(model)) next
-    ll <- ll + .grm_node_loglik(model, ef$y[idx, , drop = FALSE],
-                                levels_list, quad, skipped)
+    ll <- ll + if (is_long) {
+      .lgrm_node_loglik(model, ef$y[idx, , drop = FALSE],
+                        levels_list, n_items, quad)
+    } else {
+      .grm_node_loglik(model, ef$y[idx, , drop = FALSE],
+                       levels_list, quad, skipped)
+    }
   }
   ll
 }
@@ -208,7 +264,7 @@
     ## any objects that live in the caller's environment rather than a package
     ## namespace (the case when the code is sourced during development).
     cl <- parallel::makePSOCKcluster(n_cores)
-    on.exit(parallel::stopCluster(cl), add = TRUE)
+    on.exit(suppressWarnings(parallel::stopCluster(cl)), add = TRUE)
     parallel::clusterExport(cl, "packages", envir = environment())
     parallel::clusterEvalQ(cl, {
       for (.p in packages) suppressMessages(requireNamespace(.p, quietly = TRUE))
@@ -241,7 +297,16 @@
 #'   variables. The response matrix should contain polytomous items coded as
 #'   ordered factors.
 #' @param control A control object created by `grmforest.control()`.
-#' @param ... Additional arguments passed to underlying `grmtree()` function.
+#' @param tree_fun The tree-fitting function grown at each resample. Defaults to
+#'   [grmtree()] for a cross-sectional GRM forest. Supply
+#'   [longitudinal_grmtree()] to grow a *longitudinal* GRM forest for
+#'   response-shift screening; the forest machinery (resampling, out-of-bag
+#'   scoring, variable importance, parallelism) is identical for both.
+#' @param tree_args A named list of extra arguments passed on to `tree_fun`.
+#'   For a longitudinal forest this is where the items-per-occasion count is
+#'   supplied, e.g. `tree_args = list(n_items = 8)`.
+#' @param ... Additional arguments passed to the tree-fitting function
+#'   (`tree_fun`).
 #'
 #' @return An object of class `grmforest`, a list with components:
 #'   \item{trees}{List of fitted `grmtree` objects.}
@@ -305,6 +370,25 @@
 #'   ctrl <- grmforest.control(n_tree = 20, sampling = "subsample")
 #'   forest <- grmforest(resp ~ gender + group, data = asti, control = ctrl)
 #'
+#'#' ## Longitudinal GRM forest: same engine, longitudinal tree
+#'   data("grmtree_long_data", package = "grmtree")
+#'   items_t1 <- c("MOS_Listen", "MOS_Info", "MOS_Advice_Crisis", "MOS_Confide",
+#'                 "MOS_Advice_Want", "MOS_Fears", "MOS_Personal", "MOS_Understand")
+#'   ld <- prepare_longitudinal_data(
+#'     data = grmtree_long_data, items_t1 = items_t1,
+#'     items_t2 = paste0(items_t1, "_year1"),
+#'     covariates = c("sex", "age", "residency", "job",
+#'                    "education", "comorbidity_count", "ever_smoker"))
+#'
+#'   lforest <- grmforest(
+#'     resp_wide ~ sex + age + residency + job +
+#'       education + comorbidity_count + ever_smoker,
+#'     data = ld,
+#'     control = grmforest.control(n_tree = 20, seed = 123,
+#'                 control = grmtree.control(minbucket = 200)),
+#'     tree_fun = longitudinal_grmtree, tree_args = list(n_items = 8))
+#'   print(lforest)
+#'
 #' @seealso \code{\link{grmtree}} fits a Graded Response Model Tree,
 #'   \code{\link{grmtree.control}} creates a control object for `grmtree`,
 #'   \code{\link{grmforest.control}} creates a control object for `grmforest`,
@@ -314,7 +398,8 @@
 #'
 #' @export
 #' @importFrom stats model.frame model.response complete.cases predict
-grmforest <- function(formula, data, control = grmforest.control(), ...) {
+grmforest <- function(formula, data, control = grmforest.control(),
+                      tree_fun = grmtree, tree_args = list(), ...) {
 
   if (!inherits(formula, "formula")) {
     stop("'formula' must be a valid formula object")
@@ -374,12 +459,14 @@ grmforest <- function(formula, data, control = grmforest.control(), ...) {
   tree_ctrl <- control$control
   if (!is.null(control$mtry)) tree_ctrl$mtry <- control$mtry
 
+  dots <- list(...)
   fit_one <- function(i) {
+    args <- c(list(formula,
+                   data    = data[in_indices[[i]], , drop = FALSE],
+                   control = tree_ctrl),
+              tree_args, dots)
     tryCatch(
-      grmtree(formula,
-              data    = data[in_indices[[i]], , drop = FALSE],
-              control = tree_ctrl,
-              ...),
+      do.call(tree_fun, args),
       error = function(e) structure(list(message = conditionMessage(e), tree = i),
                                     class = "grmforest_failure")
     )
@@ -394,7 +481,8 @@ grmforest <- function(formula, data, control = grmforest.control(), ...) {
   ## package); when grmtree IS installed these already resolve via its namespace.
   trees <- .grm_lapply(seq_len(control$n_tree), fit_one,
                        n_cores = control$n_cores,
-                       export = c("grmtree", "grmtree.control"),
+                       export = c("grmtree", "grmtree.control", "grmfit",
+                                  "longitudinal_grmtree", "longitudinal_grmfit"),
                        export_env = environment())
 
   failed <- vapply(trees, inherits, logical(1L), what = "grmforest_failure")

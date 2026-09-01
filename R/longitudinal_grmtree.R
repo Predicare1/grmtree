@@ -71,19 +71,19 @@
 #'
 #' @details ## Constrained Two-Factor Longitudinal GRM
 #'
-#' The function specifies a two-factor GRM where the latent factors
-#' \eqn{\theta_{T1}} and \eqn{\theta_{T2}} represent the construct at Time 1 and
-#' Time 2, respectively. The model structure is:
+#'   The function specifies a two-factor GRM where the latent factors
+#'   \eqn{\theta_{T1}} and \eqn{\theta_{T2}} represent the construct at Time 1
+#'   and Time 2, respectively. The model structure is:
 #'
 #' \deqn{\theta_{T1} \sim N(0, 1)} \deqn{\theta_{T2} \sim N(\mu_{T2},
 #' \sigma^2_{T2})} \deqn{Cov(\theta_{T1}, \theta_{T2}) = \sigma_{12}}
 #'
-#' Items 1 through \eqn{M} load on \eqn{\theta_{T1}} and items \eqn{M+1} through
-#' \eqn{2M} load on \eqn{\theta_{T2}}, where \eqn{M} is the number of items per
-#' time point.
+#'   Items 1 through \eqn{M} load on \eqn{\theta_{T1}} and items \eqn{M+1}
+#'   through \eqn{2M} load on \eqn{\theta_{T2}}, where \eqn{M} is the number of
+#'   items per time point.
 #'
-#' Under the null hypothesis of no response shift, item parameters are
-#' constrained equal across time points. For each item \eqn{m}:
+#'   Under the null hypothesis of no response shift, item parameters are
+#'   constrained equal across time points. For each item \eqn{m}:
 #' \itemize{
 #'   \item Discrimination: \eqn{a_{1,m} = a_{2,m+M}} (the T1 item's loading
 #'     on \eqn{\theta_{T1}} equals the T2 item's loading on \eqn{\theta_{T2}})
@@ -91,15 +91,15 @@
 #'     \eqn{k = 1, \ldots, K_m}
 #' }
 #'
-#' The number of threshold constraints per item pair is determined by the
-#' minimum number of observed response categories across T1 and T2 for that item
-#' (minus 1). This handles cases where sparse response categories at one time
-#' point produce fewer estimated thresholds (e.g., category 5 may be empty at T1
-#' but observed at T2).
+#'   The number of threshold constraints per item pair is determined by the
+#'   minimum number of observed response categories across T1 and T2 for that
+#'   item (minus 1). This handles cases where sparse response categories at one
+#'   time point produce fewer estimated thresholds (e.g., category 5 may be
+#'   empty at T1 but observed at T2).
 #'
-#' ## Constraint Syntax
+#'   ## Constraint Syntax
 #'
-#' Constraints are specified using \code{mirt}'s CONSTRAIN syntax:
+#'   Constraints are specified using \code{mirt}'s CONSTRAIN syntax:
 #' \itemize{
 #'   \item Discrimination: \code{(i, a1, j, a2)} constrains item \code{i}'s
 #'     \code{a1} parameter to equal item \code{j}'s \code{a2} parameter
@@ -107,16 +107,18 @@
 #'     to be equal between items \code{i} and \code{j}
 #' }
 #'
-#' where \code{i} is the T1 item index and \code{j = i + n_items} is the
-#' corresponding T2 item index.
+#'   where \code{i} is the T1 item index and \code{j = i + n_items} is the
+#'   corresponding T2 item index. The baseline factor is fixed at N(0,1) as the
+#'   reference while the follow-up mean and variance are freely estimated
+#'   (identified by the cross-time item-equality constraints).
 #'
-#' ## Technical Details
+#'   ## Technical Details
 #'
 #' The EM algorithm is run with a maximum of 1000 cycles (\code{technical =
 #' list(NCYCLES = 1000)}) to accommodate the complexity of the constrained
-#' two-factor model. Verbose output from \code{mirt} is suppressed. If the model
-#' fails to converge or encounters an error, the function stops with an
-#' informative error message.
+#'   two-factor model. Verbose output from \code{mirt} is suppressed. If the
+#'   model fails to converge or encounters an error, the function stops with an
+#'   informative error message.
 #'
 #' @seealso \code{\link{grmtree}} fits a Graded Response Model Tree,
 #'   \code{\link{longitudinal_grmtree}} for the main tree-fitting function that
@@ -145,7 +147,7 @@ longitudinal_grmfit <- function(y, x = NULL, start = NULL, weights = NULL,
   model_str <- paste0(
     'Theta_T1 = 1-', n_items, '\n',
     'Theta_T2 = ', n_items + 1, '-', 2 * n_items, '\n',
-    'COV = Theta_T1*Theta_T2\n',
+    'COV = Theta_T1*Theta_T2, Theta_T2*Theta_T2\n',
     'MEAN = Theta_T2'
   )
   # ---- Build constraints per item pair ----
@@ -367,7 +369,8 @@ longitudinal_grmfit <- function(y, x = NULL, start = NULL, weights = NULL,
 #'   \item Different item discrimination patterns across subgroups
 #'   \item Different threshold locations across subgroups
 #' }
-#' The structural parameters -- the true latent change \eqn{\mu_{T2}} and the
+#' The structural parameters -- the true latent change \eqn{\mu_{T2}},
+#' the follow-up latent variance \eqn{\sigma^2_{T2}}, and the
 #' test-retest correlation -- are estimated and reported at every node but are
 #' \strong{held out of the split test}, so a subgroup difference in how much the
 #' construct truly changed, or in its stability over time, cannot by itself
@@ -520,13 +523,13 @@ longitudinal_grmtree <- function(formula, data, n_items = NULL,
   # ---- Restrict the split test to ITEM parameters (measurement invariance) ----
   # Fit the root once, locate the structural (latent mean / covariance) score
   # columns, and hold them out so a split marks item-measurement heterogeneity,
-  # not a difference in true change (mu_T2) or test-retest (sigma_12). mirt
-  # places the GROUP parameters last in estfun, so the trailing n_struct columns
-  # are the structural ones.
+  # not a difference in true change (mu_T2), follow-up variance (sigma^2_T2), or
+  # test-retest (sigma_12). mirt places the GROUP parameters last in estfun, so
+  # the trailing n_struct columns are the structural ones.
   root      <- longitudinal_grmfit(y, estfun = TRUE, object = TRUE, ...)
   E         <- ncol(root$estfun)
   vv        <- mirt::mod2values(root$object); vv <- vv[vv$est, ]
-  n_struct  <- sum(vv$item == "GROUP")          # e.g. Theta_T2 mean + T1-T2 cov
+  n_struct  <- sum(vv$item == "GROUP")          # e.g.  Theta_T2 mean + variance + T1-T2 covariance
   item_cols <- if (n_struct > 0 && n_struct < E)
     setdiff(seq_len(E), seq.int(E - n_struct + 1L, E)) else seq_len(E)
 

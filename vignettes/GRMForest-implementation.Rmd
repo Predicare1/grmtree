@@ -19,13 +19,13 @@ knitr::opts_chunk$set(
 
 # Introduction
 
-GRM Forests extend GRM Trees by creating ensembles of trees to provide more robust variable importance measures. This vignette covers:
+GRM Forests extend GRM Trees by creating ensembles of trees to provide more robust variable importance measures. The same forest works for longitudinal trees: see the *Response Shift Detection with the Longitudinal GRMTree* vignette for a longitudinal GRM Forest. This vignette covers:
 
 * GRM Forest implementation
 
 * Variable importance and variable importance plot.
 
-See the vignette on getting started with grmtree package for a more detailed walkthrough of the tree-based graded response theory model (GRMTree).
+See the vignette on getting started with grmtree package for a more detailed walkthrough of the tree-based graded response theory model (GRMTree). 
 
 # Install and Load required packages
 To implement the tree-based GRM (GRMTree), you will install the following packages if not previously installed.
@@ -93,7 +93,7 @@ forest_control <- grmforest.control(
   control = grm_control,
   remove_dead_trees = TRUE, # Remove any null GRMTree
   seed = 123,
-  n_cores = 2            # Parallel now works (PSOCK/Windows included)
+  n_cores = 4            # Parallel now works (PSOCK/Windows included)
 )
 ```
 

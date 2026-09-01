@@ -1,13 +1,49 @@
-## Resubmission of 0.2.1 (now 0.2.2)
+## Submission of version 0.3.0
 
+This is a feature update to the CRAN package `grmtree`. This update added new features:
+
+### New features
+* `grmforest()` accepts `tree_fun`/`tree_args`, letting the same forest engine
+  grow either a cross-sectional (`grmtree`) or longitudinal
+  (`longitudinal_grmtree`) forest; `varimp()` scores each with the appropriate
+  marginal likelihood. Default behaviour is unchanged (verified identical).
+* `longitudinal_grmtree()` now freely estimates the follow-up latent variance.
+
+### Dependencies
+* Added `mvtnorm` and `parallel` to Imports — `parallel` for multi-core forest
+  fitting, `mvtnorm` for the longitudinal forest's multivariate-normal
+  quadrature weights.
+  
+### Notes on check time
+Test files for `grmforest()` and `varimp()` use a small number of trees and are 
+guarded with `skip_on_cran()`, and all computationally intensive vignette 
+code chunks use `eval = FALSE` with pre-computed example output, 
+keeping the CRAN check time under 10 minutes.
+
+## R CMD check results
+0 errors | 0 warnings | 0 notes on win-builder (R-devel).
+
+On the local Windows machine, R CMD check reports one WARNING that
+dependencies (partykit, mirt, libcoin, mvtnorm) were "built under R version
+4.5.3" while running R 4.5.1; this is a local version mismatch only and does
+not occur on CRAN's build systems.
+
+## Test environments
+* local Windows 11, R 4.5.1
+* GitHub Actions (ubuntu-latest, windows-latest, macos-latest)
+* win-builder (R-devel)
+
+---
+
+## Previous submission (version 0.2.2)
+This was a patch release of the CRAN package `grmtree` with bug fixes to the
+GRM Forest functions. No user-facing API changes.
+
+### Comment reploy
 * Reduced test and vignette check time so overall check time is well under 10 minutes. 
   Removed the gnu.org license URL from README (replaced with the CRAN license page) 
   to avoid the transient connection timeout flagged in the pre-test.
-
-## Submission of version 0.2.1
-This is a patch release of the CRAN package `grmtree` with bug fixes to the
-GRM Forest functions. No user-facing API changes.
-
+  
 ### Bug fixes
 * `grmforest()` now runs correctly in parallel (`n_cores > 1`) on all
   platforms, including PSOCK/Windows workers. Worker processes now load the

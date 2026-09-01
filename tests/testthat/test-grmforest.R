@@ -116,3 +116,27 @@ test_that("c.grmforest combines forests grown on the same data", {
   expect_equal(length(big$trees), length(f1$trees) + length(f2$trees))
   expect_equal(length(big$oob_indices), length(big$trees))
 })
+
+## ---- longitudinal forest via tree_fun ------------------------------------
+test_that("grmforest grows a longitudinal forest via tree_fun", {
+  skip_on_cran()
+  skip_if_not_installed("mirt")
+  skip_if_not_installed("partykit")
+
+  df  <- make_tiny_long(n = 250, n_items = 4, seed = 42)
+  it1 <- paste0("I", 1:4, "_T1")
+  it2 <- paste0("I", 1:4, "_T2")
+  ld  <- prepare_longitudinal_data(df, items_t1 = it1, items_t2 = it2,
+                                   covariates = c("grp", "age"))
+
+  suppressWarnings({
+    f <- grmforest(resp_wide ~ grp + age, data = ld,
+                   control = grmforest.control(n_tree = 2, seed = 1,
+                                               control = grmtree.control(minbucket = 80)),
+                   tree_fun = longitudinal_grmtree, tree_args = list(n_items = 4))
+  })
+  expect_s3_class(f, "grmforest")
+  expect_gt(length(f$trees), 0)
+  expect_s3_class(f$trees[[1]], "longitudinal_grmtree")
+  expect_equal(length(f$oob_indices), length(f$trees))
+})

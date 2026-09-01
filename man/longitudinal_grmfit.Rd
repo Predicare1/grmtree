@@ -76,15 +76,15 @@ every node yields a substantial speed-up with no change in results.
 \subsection{Constrained Two-Factor Longitudinal GRM}{
 
 The function specifies a two-factor GRM where the latent factors
-\eqn{\theta_{T1}} and \eqn{\theta_{T2}} represent the construct at Time 1 and
-Time 2, respectively. The model structure is:
+\eqn{\theta_{T1}} and \eqn{\theta_{T2}} represent the construct at Time 1
+and Time 2, respectively. The model structure is:
 
 \deqn{\theta_{T1} \sim N(0, 1)} \deqn{\theta_{T2} \sim N(\mu_{T2},
 \sigma^2_{T2})} \deqn{Cov(\theta_{T1}, \theta_{T2}) = \sigma_{12}}
 
-Items 1 through \eqn{M} load on \eqn{\theta_{T1}} and items \eqn{M+1} through
-\eqn{2M} load on \eqn{\theta_{T2}}, where \eqn{M} is the number of items per
-time point.
+Items 1 through \eqn{M} load on \eqn{\theta_{T1}} and items \eqn{M+1}
+through \eqn{2M} load on \eqn{\theta_{T2}}, where \eqn{M} is the number of
+items per time point.
 
 Under the null hypothesis of no response shift, item parameters are
 constrained equal across time points. For each item \eqn{m}:
@@ -96,10 +96,10 @@ on \eqn{\theta_{T1}} equals the T2 item's loading on \eqn{\theta_{T2}})
 }
 
 The number of threshold constraints per item pair is determined by the
-minimum number of observed response categories across T1 and T2 for that item
-(minus 1). This handles cases where sparse response categories at one time
-point produce fewer estimated thresholds (e.g., category 5 may be empty at T1
-but observed at T2).
+minimum number of observed response categories across T1 and T2 for that
+item (minus 1). This handles cases where sparse response categories at one
+time point produce fewer estimated thresholds (e.g., category 5 may be
+empty at T1 but observed at T2).
 }
 
 \subsection{Constraint Syntax}{
@@ -113,15 +113,17 @@ to be equal between items \code{i} and \code{j}
 }
 
 where \code{i} is the T1 item index and \code{j = i + n_items} is the
-corresponding T2 item index.
+corresponding T2 item index. The baseline factor is fixed at N(0,1) as the
+reference while the follow-up mean and variance are freely estimated
+(identified by the cross-time item-equality constraints).
 }
 
 \subsection{Technical Details}{
 
 The EM algorithm is run with a maximum of 1000 cycles (\code{technical =
 list(NCYCLES = 1000)}) to accommodate the complexity of the constrained
-two-factor model. Verbose output from \code{mirt} is suppressed. If the model
-fails to converge or encounters an error, the function stops with an
+two-factor model. Verbose output from \code{mirt} is suppressed. If the
+model fails to converge or encounters an error, the function stops with an
 informative error message.
 }
 }

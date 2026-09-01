@@ -92,6 +92,21 @@ importance <- varimp(forest, seed = 123)
 ## Print and plot the variable importance scores
 print(importance)
 plot(importance)
+
+#' ## Variable importance for a longitudinal forest (same call)
+  data("grmtree_long_data", package = "grmtree")
+  items_t1 <- c("MOS_Listen", "MOS_Info", "MOS_Advice_Crisis", "MOS_Confide",
+                "MOS_Advice_Want", "MOS_Fears", "MOS_Personal", "MOS_Understand")
+  ld <- prepare_longitudinal_data(
+    data = grmtree_long_data, items_t1 = items_t1,
+    items_t2 = paste0(items_t1, "_year1"),
+    covariates = c("sex", "age", "education"))
+  lforest <- grmforest(resp_wide ~ sex + age + education, data = ld,
+    control = grmforest.control(n_tree = 20, seed = 123,
+                control = grmtree.control(minbucket = 200)),
+    tree_fun = longitudinal_grmtree, tree_args = list(n_items = 8))
+  importance <- varimp(lforest, seed = 123)
+  print(importance)
 \dontshow{\}) # examplesIf}
 }
 \seealso{

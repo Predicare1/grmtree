@@ -4,7 +4,14 @@
 \alias{grmforest}
 \title{Fit a Forest of Graded Response Model Trees for Ensemble-Based DIF Detection}
 \usage{
-grmforest(formula, data, control = grmforest.control(), ...)
+grmforest(
+  formula,
+  data,
+  control = grmforest.control(),
+  tree_fun = grmtree,
+  tree_args = list(),
+  ...
+)
 }
 \arguments{
 \item{formula}{A formula specifying the model structure with the response
@@ -19,7 +26,18 @@ ordered factors.}
 
 \item{control}{A control object created by \code{grmforest.control()}.}
 
-\item{...}{Additional arguments passed to underlying \code{grmtree()} function.}
+\item{tree_fun}{The tree-fitting function grown at each resample. Defaults to
+\code{\link[=grmtree]{grmtree()}} for a cross-sectional GRM forest. Supply
+\code{\link[=longitudinal_grmtree]{longitudinal_grmtree()}} to grow a \emph{longitudinal} GRM forest for
+response-shift screening; the forest machinery (resampling, out-of-bag
+scoring, variable importance, parallelism) is identical for both.}
+
+\item{tree_args}{A named list of extra arguments passed on to \code{tree_fun}.
+For a longitudinal forest this is where the items-per-occasion count is
+supplied, e.g. \code{tree_args = list(n_items = 8)}.}
+
+\item{...}{Additional arguments passed to the tree-fitting function
+(\code{tree_fun}).}
 }
 \value{
 An object of class \code{grmforest}, a list with components:
@@ -95,6 +113,25 @@ library(hlt)
   # Fit with custom control
   ctrl <- grmforest.control(n_tree = 20, sampling = "subsample")
   forest <- grmforest(resp ~ gender + group, data = asti, control = ctrl)
+
+#' ## Longitudinal GRM forest: same engine, longitudinal tree
+  data("grmtree_long_data", package = "grmtree")
+  items_t1 <- c("MOS_Listen", "MOS_Info", "MOS_Advice_Crisis", "MOS_Confide",
+                "MOS_Advice_Want", "MOS_Fears", "MOS_Personal", "MOS_Understand")
+  ld <- prepare_longitudinal_data(
+    data = grmtree_long_data, items_t1 = items_t1,
+    items_t2 = paste0(items_t1, "_year1"),
+    covariates = c("sex", "age", "residency", "job",
+                   "education", "comorbidity_count", "ever_smoker"))
+
+  lforest <- grmforest(
+    resp_wide ~ sex + age + residency + job +
+      education + comorbidity_count + ever_smoker,
+    data = ld,
+    control = grmforest.control(n_tree = 20, seed = 123,
+                control = grmtree.control(minbucket = 200)),
+    tree_fun = longitudinal_grmtree, tree_args = list(n_items = 8))
+  print(lforest)
 \dontshow{\}) # examplesIf}
 }
 \seealso{

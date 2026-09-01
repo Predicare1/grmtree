@@ -67,6 +67,21 @@
 #' print(importance)
 #' plot(importance)
 #'
+#' #' ## Variable importance for a longitudinal forest (same call)
+#'   data("grmtree_long_data", package = "grmtree")
+#'   items_t1 <- c("MOS_Listen", "MOS_Info", "MOS_Advice_Crisis", "MOS_Confide",
+#'                 "MOS_Advice_Want", "MOS_Fears", "MOS_Personal", "MOS_Understand")
+#'   ld <- prepare_longitudinal_data(
+#'     data = grmtree_long_data, items_t1 = items_t1,
+#'     items_t2 = paste0(items_t1, "_year1"),
+#'     covariates = c("sex", "age", "education"))
+#'   lforest <- grmforest(resp_wide ~ sex + age + education, data = ld,
+#'     control = grmforest.control(n_tree = 20, seed = 123,
+#'                 control = grmtree.control(minbucket = 200)),
+#'     tree_fun = longitudinal_grmtree, tree_args = list(n_items = 8))
+#'   importance <- varimp(lforest, seed = 123)
+#'   print(importance)
+#'
 #' @seealso \code{\link{grmtree}} fits a Graded Response Model Tree,
 #'   \code{\link{grmforest}} for GRM Forests, \code{\link{grmforest.control}}
 #'   creates a control object for `grmforest`, \code{\link{plot.varimp}} creates
@@ -148,7 +163,7 @@ varimp <- function(forest, method = "permutation", nperm = 1L, quadpts = 61L,
 
   if (verbose) message("Evaluating ", ntree, " trees ...")
   res <- .grm_lapply(seq_len(ntree), eval_tree, n_cores = n_cores,
-                     export = c(".grm_tree_loglik", ".grm_node_loglik",
+                     export = c(".grm_tree_loglik", ".grm_node_loglik", ".lgrm_node_loglik",
                                 ".grm_eval_frame", ".grm_levels",
                                 ".row_logsumexp", ".grm_quad"),
                      export_env = environment())

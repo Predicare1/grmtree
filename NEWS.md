@@ -1,4 +1,20 @@
-# grmtree 0.2.2
+# grmtree 0.3.0
+
+## New features
+* `grmforest()` gains `tree_fun` and `tree_args` arguments so one forest engine
+  serves both trees. The default (`tree_fun = grmtree`) grows a cross-sectional
+  GRM forest exactly as before; `tree_fun = longitudinal_grmtree` with
+  `tree_args = list(n_items = ...)` grows a longitudinal GRM forest for
+  response-shift detection. `varimp()` detects the tree type and scores
+  out-of-bag respondents with the appropriate marginal likelihood, the
+  two-occasion correlated-factor likelihood for longitudinal forests, so the
+  same `varimp()` call ranks covariates for either forest.
+* `longitudinal_grmtree()` now freely estimates the follow-up latent variance
+  (previously fixed to 1), so the two-factor model captures change in trait
+  dispersion across occasions as well as in the mean. The variance remains a
+  structural parameter held out of the split test.
+
+# grmtree 0.2.2 (2026)
 
 ## Bug fixes
 
@@ -14,7 +30,7 @@
 * `grmfit()` no longer computes standard errors during fitting, which removes a
   `chol()` failure on hard resamples and speeds up tree/forest construction;
   results are unchanged.
-* Adjust `longitudinal_grmtree()` to restrict the split test to ITEM parameters 
+* Restricted the split test in `longitudinal_grmtree()` to the ITEM parameters 
   (measurement invariance) and not include the structural parameters.
 * Corrected item-level testing in `rs_characterize()`. Item-level tests now run
   only in nodes with omnibus response shift detected after the across-node

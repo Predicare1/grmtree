@@ -25,7 +25,7 @@ The package also implements the **Longitudinal GRMTree** for detecting **respons
 -   **Response Shift Detection**: Longitudinal GRMTree for detecting and characterizing response shift (recalibration, reprioritization) in PROMs measured at two time points
 -   **Visual Analytics**: Specialized plotting functions for visualizing threshold parameters, discrimination parameters, factor score distributions, and response shift across terminal nodes
 -   **Parameter Extraction**: Comprehensive methods for extracting and analyzing item parameters (thresholds, discrimination), factor scores, and node-specific characteristics
--   **Ensemble Methods**: GRM Forests implementation for robust variable importance analysis and enhanced DIF detection stability
+-   **Ensemble Methods**: GRM Forests for both cross-sectional and longitudinal trees, with permutation variable importance
 -   **Multiple Testing Corrections**: Flexible p-value adjustment methods (Bonferroni, Holm, Benjamini-Hochberg, etc.) to control Type I error inflation
 -   **Seamless Integration**: Full compatibility with the `mirt` package for GRM estimation and the `partykit` ecosystem for tree visualization
 
@@ -149,7 +149,7 @@ browseVignettes("grmtree")
 ## GRM Forests Example
 
 ```{r}
-# Fit a forest with 100 trees
+# Fit a forest with 50 trees
 forest <- grmforest(resp ~ sex + age + Education,
                        data = resp.data,
                    control = grmforest.control(control = grm_control, 
@@ -163,6 +163,24 @@ plot(vim)
 
 # Examine individual trees
 plot(forest$trees[[1]]) # First tree
+```
+
+## Longitudinal GRM Forest
+
+The same forest engine screens many covariates for a longitudinal tree — just
+pass `tree_fun = longitudinal_grmtree`:
+
+```{r}
+forest <- grmforest(
+  resp_wide ~ sex + age + residency + job +
+    education + comorbidity_count + ever_smoker,
+  data      = ld,
+  control   = grmforest.control(n_tree = 50, n_cores = 2,
+                control = grmtree.control(minbucket = 200)),
+  tree_fun  = longitudinal_grmtree,
+  tree_args = list(n_items = 8)
+)
+varimp(forest)
 ```
 
 # References

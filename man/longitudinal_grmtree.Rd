@@ -195,7 +195,8 @@ constrained longitudinal measurement model. A split reflects:
 \item Different item discrimination patterns across subgroups
 \item Different threshold locations across subgroups
 }
-The structural parameters -- the true latent change \eqn{\mu_{T2}} and the
+The structural parameters -- the true latent change \eqn{\mu_{T2}},
+the follow-up latent variance \eqn{\sigma^2_{T2}}, and the
 test-retest correlation -- are estimated and reported at every node but are
 \strong{held out of the split test}, so a subgroup difference in how much the
 construct truly changed, or in its stability over time, cannot by itself
