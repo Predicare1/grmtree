@@ -146,8 +146,8 @@ Fitted party:
 
 Number of inner nodes:    1
 Number of terminal nodes: 2
-Number of parameters per node: 3
-Objective function (negative log-likelihood): 26051.77
+Number of parameters per node: 43
+Objective function (negative log-likelihood): 26048.72
 ```
 
 The tree identifies a younger subgroup (age <= 61, n = 597) and an older subgroup
@@ -170,31 +170,39 @@ rs <- rs_characterize(
   tree,
   p_adjust        = "fdr",          # item-level correction within nodes
   global_p_adjust = "bonferroni",   # omnibus correction across nodes
-  rs_threshold    = 0.3             # RS-type classification threshold
+  purify          = TRUE            # iterative purification of item tests
 )
 
 ## View the results
 print(rs)
 ```
 
-Example output:
+Example output (abridged):
 
 ```
 === Response Shift Characterization ===
 
 --- Omnibus RS Test (Constrained vs Unconstrained) ---
 Node 2 (n = 597):
-  LRT: chi2 = 36.791, df = 40, p = 6.155e-01, p_adj = 1.000e+00
+  LRT: chi2 = 37.182, df = 38, p = 5.071e-01, p_adj = 1.000e+00
   RS detected: FALSE
 Node 3 (n = 903):
-  LRT: chi2 = 449.498, df = 40, p = 1.067e-70, p_adj = 2.133e-70
+  LRT: chi2 = 444.013, df = 38, p = 1.118e-70, p_adj = 2.237e-70
   RS detected: TRUE
 
 --- Item-Level RS Testing ---
+(Items tested against purified anchors: flagged items freed iteratively)
+RS type: Wald tests of slope (reprioritization) and location
+(recalibration), each with the other parameters free
 Node 3:
-  Item  2: chi2 =  50.670, df = 5, p_adj = 0.000000  Reprioritization   [large] ***
-  Item  6: chi2 = 383.014, df = 5, p_adj = 0.000000  Recalibration     ***
+  Item  2: chi2 =  42.673, df = 5, p_adj = 0.000000  Reprioritization  (slope p = 0.000, location p = 0.074) ***
+  Item  5: chi2 =   8.015, df = 5, p_adj = 0.414427  None
+  Item  6: chi2 = 367.814, df = 5, p_adj = 0.000000  Recalibration     (slope p = 0.829, location p = 0.000) ***
 ```
+
+The omnibus test has 38 degrees of freedom: freeing the 40 follow-up item
+parameters costs two fewer, because the follow-up latent mean and variance,
+estimated in the constrained model, are not identified once all items are free.
 
 The younger subgroup (Node 2) shows no response shift. The older subgroup
 (Node 3) shows significant response shift, localized to the **Info** item
@@ -203,6 +211,38 @@ The younger subgroup (Node 2) shows no response shift. The older subgroup
 synthetic data, and it illustrates how the Longitudinal GRMTree pinpoints *which
 subgroup* and *which items* exhibit response shift without pre-specifying the
 subgroups.
+
+### How the type of response shift is decided
+
+An item is first *flagged* by the joint test above. Its *type* is then decided
+by two further tests in a model where the flagged items are free over time and
+the other items serve as anchors:
+
+* a **slope test** (does the discrimination change?), which indicates
+  **reprioritization**;
+* a **location test** (do the thresholds change?), which indicates
+  **recalibration**.
+
+Each test leaves the other set of parameters free, so a change in
+discrimination cannot masquerade as a change in thresholds, or the reverse.
+Both significant gives **Both**. If an item is flagged but neither part is
+significant on its own, it is labelled **Undetermined**: the shift is real, but
+the data cannot say which kind it is. No cut-off on the size of the change is
+used. For this item, Info, the slope test is significant and the location test
+is not, so it is reprioritization; for Fears it is the other way round.
+`type_method = "threshold"` reproduces the magnitude rule of grmtree 0.3.0.
+
+### Why purify?
+
+Without purification (`purify = FALSE`, the default), each item is tested
+against all other items as anchors, including items that themselves shifted.
+In this example the single-pass tests also flag Item 5 (`MOS_Advice_Want`,
+chi2 = 20.958, adjusted p = 0.002), although no response shift was simulated
+for it. With `purify = TRUE`, the items flagged in
+one pass (here Items 2 and 6) are freed in the next, every item is tested
+against the non-flagged items only, and Item 5 is no longer flagged. The passes
+stop when the set of flagged items no longer changes (`max_iter` caps them).
+Purification needs extra model fits, so it takes longer.
 
 ## Accessing the results
 

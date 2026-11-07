@@ -1,3 +1,66 @@
+# grmtree 0.3.1
+
+## Bug fixes
+
+* `rs_characterize()`: the follow-up latent variance is now freely estimated in
+  the constrained (no response shift) and item-level models, as in Phase 1
+  (`longitudinal_grmtree()`). Previously it was fixed at 1, so a change in
+  trait dispersion could be mistaken for response shift. In the fully
+  unconstrained model the follow-up mean and variance are not identified and
+  are now fixed at 0 and 1; the omnibus likelihood ratio test therefore has
+  `n_constraints - 2` degrees of freedom (38 for eight five-category items),
+  computed from the numbers of estimated parameters. `sigma2_T2` in the
+  output now reports the estimated variance.
+* `longitudinal_grmtree()` and `rs_characterize()`: when a response category
+  was observed at one occasion but not the other (e.g., nobody in a node chose
+  the lowest category at follow-up), `mirt` recoded the two columns
+  differently and the cross-occasion equality constraints tied together
+  thresholds of different categories, which inflated the response shift tests.
+  Such a category is now merged with its neighbouring category at both
+  occasions before fitting, so each item pair always has the same categories.
+* Item names no longer carry the response-variable prefix added by
+  `partykit` (e.g., `respMOS_Listen` is now `MOS_Listen`) in node models,
+  extractor output and plots.
+* Node coefficients are stored as a named vector of item parameters (IRT
+  parameterization), so `coef()` returns a node-by-parameter matrix and
+  `print()` reports the correct number of parameters per node.
+* New `logLik()` method for (longitudinal) GRM trees, which also makes
+  `AIC()` and `BIC()` available.
+* With the tree-wide adjustment methods (`"holm"`, `"BH"`, ...), the
+  exploratory tree now keeps all other `mob_control()` settings passed through
+  `grmtree.control(...)` (e.g., `ordinal`, `maxdepth`); previously only the
+  minimum node size and `mtry` were kept.
+* The `mtry` argument of `grmtree()` and `longitudinal_grmtree()` is now
+  honoured (it was previously ignored in favour of `control$mtry`).
+* `latentpar_longitudinal_grmtree()` returns clean row names.
+* The documentation of `rs_threshold` now describes how flagged items are
+  labelled (from the estimated parameter changes).
+
+## New features
+
+* `rs_characterize()` gains `purify` (default `FALSE`) and `max_iter`. With
+  `purify = TRUE`, item-level tests are purified iteratively: items flagged in
+  one pass are freed in the next, so each item is tested against non-flagged
+  anchor items only. This guards against false flags caused by response shift
+  in other items.
+
+* `rs_characterize()` gains `type_method`. The new default, `"wald"`, decides
+  the type of a flagged item with two Wald tests in a model where the flagged
+  items are free and the other items are anchors: a slope test
+  (reprioritization) and a location test of the thresholds (recalibration),
+  each with the other set of parameters free. Items flagged by the joint test
+  but significant on neither component are labelled `"Undetermined"`. No
+  magnitude cut-off is used; `rs_threshold` now applies only to
+  `type_method = "threshold"`, which keeps the 0.3.0 rule. New columns:
+  `W_slope`, `p_slope`, `W_location`, `df_location`, `p_location`.
+* `plot_rs_tree()` and `plot_rs_heatmap()` show `"Undetermined"` items in
+  dark grey instead of hiding them as `"None"`.
+
+## Documentation
+
+* The longitudinal vignette shows `purify = TRUE` and the corrected example
+  output (omnibus df = 38; 43 parameters per node).
+
 # grmtree 0.3.0
 
 ## New features

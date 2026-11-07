@@ -12,7 +12,8 @@ grmfit(
   offset = NULL,
   ...,
   estfun = FALSE,
-  object = FALSE
+  object = FALSE,
+  prefix = NULL
 )
 }
 \arguments{
@@ -32,6 +33,9 @@ grmfit(
 functions}
 
 \item{object}{Logical indicating whether to return the full mirt model object}
+
+\item{prefix}{Optional name of the response variable; if all item names
+start with it (as when called from \code{mob}), it is removed.}
 }
 \value{
 A list containing: \item{coefficients}{Item parameter estimates}

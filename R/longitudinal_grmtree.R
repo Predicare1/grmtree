@@ -52,6 +52,8 @@
 #'   \code{\link[mirt]{mirt}} model object. Default is \code{FALSE}. Set to
 #'   \code{TRUE} when the fitted model is needed for post-hoc analyses (e.g., in
 #'   \code{\link{rs_characterize}}).
+#' @param prefix Optional name of the response variable; if all item names
+#'   start with it (as when called from \code{mob}), it is removed.
 #' @param ... Additional arguments passed to \code{\link[mirt]{mirt}}.
 #'
 #' @return A list containing:
@@ -130,18 +132,21 @@
 #' @importFrom mirt mirt mirt.model coef logLik estfun.AllModelClass
 longitudinal_grmfit <- function(y, x = NULL, start = NULL, weights = NULL,
                                 offset = NULL, ...,
-                                estfun = FALSE, object = FALSE) {
+                                estfun = FALSE, object = FALSE, prefix = NULL) {
   if (!is.matrix(y)) y <- as.matrix(y)
   n_cols <- ncol(y)
   if (n_cols < 4 || n_cols %% 2 != 0) {
     stop("Response matrix must have an even number of columns. Found: ", n_cols)
   }
   n_items <- n_cols / 2
+  y <- .clean_item_names(y, prefix)
   # ---- Detect number of thresholds PER ITEM PAIR ----
   # Items may have different observed categories at T1 vs T2
   # (e.g., category 5 may be empty at T1 but observed at T2)
   # We must constrain only the thresholds that BOTH items have.
   # Use the MINIMUM category count within each T1-T2 pair.
+  # Give each T1/T2 item pair the same set of categories (see .align_categories)
+  y <- .align_categories(y, n_items)
   n_cats_per_col <- apply(y, 2, function(col) length(unique(na.omit(col))))
   # ---- Build model specification ----
   model_str <- paste0(
@@ -193,8 +198,14 @@ longitudinal_grmfit <- function(y, x = NULL, start = NULL, weights = NULL,
       NULL
     })
   }
+  # Named vector: occasion-invariant item parameters (taken from the T1 items)
+  # followed by the structural parameters of the follow-up trait
+  cf <- .flatten_items(coefs$items[seq_len(n_items), c("a1", grep("^b", colnames(coefs$items), value = TRUE)), drop = FALSE])
+  names(cf) <- sub("\\.a1$", ".a", names(cf))
+  cf <- c(cf, mu_T2 = unname(coefs$means[2]), sigma2_T2 = unname(coefs$cov[2, 2]),
+          sigma12 = unname(coefs$cov[1, 2]))
   list(
-    coefficients = coefs,
+    coefficients = cf,
     objfun = -as.numeric(mirt::logLik(fit)),
     estfun = ef,
     object = if (object) fit else NULL
@@ -533,24 +544,29 @@ longitudinal_grmtree <- function(formula, data, n_items = NULL,
   item_cols <- if (n_struct > 0 && n_struct < E)
     setdiff(seq_len(E), seq.int(E - n_struct + 1L, E)) else seq_len(E)
 
+  resp_name <- paste(deparse(formula[[2L]]), collapse = "")
+
   # Fitting function closure
   long_grmfit_wrapper <- function(y, x = NULL, start = NULL, weights = NULL,
                                   offset = NULL, ..., estfun = FALSE,
                                   object = FALSE) {
     longitudinal_grmfit(y = y, x = x, start = start, weights = weights,
-                        offset = offset, estfun = estfun, object = object, ...)
+                        offset = offset, estfun = estfun, object = object,
+                        prefix = resp_name, ...)
   }
+  # The mtry argument, if given, overrides control$mtry
+  if (!is.null(mtry)) control$mtry <- mtry
+
   p_adjust <- if (!is.null(control$p_adjust)) control$p_adjust else "none"
   alpha <- control$alpha
   minbucket <- control$minsize
   if (p_adjust %in% c("holm", "BH", "BY", "hochberg", "hommel")) {
     initial_alpha <- control$initial_alpha
-    ctrl_full <- partykit::mob_control(
-      minbucket = minbucket, bonferroni = FALSE,
-      alpha = initial_alpha, ytype = "matrix",
-      parm = item_cols,
-      mtry = if (!is.null(control$mtry)) control$mtry else Inf
-    )
+    # Keep all other mob_control() settings (e.g., ordinal, maxdepth, mtry)
+    ctrl_full <- control
+    ctrl_full$alpha <- initial_alpha
+    ctrl_full$bonferroni <- FALSE
+    ctrl_full$parm <- item_cols
     rval <- partykit::mob(
       formula = formula, data = data,
       fit = long_grmfit_wrapper,
@@ -650,4 +666,37 @@ prepare_longitudinal_data <- function(data, items_t1, items_t2,
     out <- out[complete, ]
   }
   return(out)
+}
+
+
+# Internal helper: align the response categories of each T1/T2 item pair.
+#
+# mirt recodes every item to consecutive integers. If a category is observed at
+# one occasion but not the other (common for extreme categories in small
+# nodes), the two columns would be recoded differently, and the cross-occasion
+# equality constraints would then tie together thresholds of DIFFERENT
+# categories. To avoid this, a category that is empty at either occasion is
+# merged with its nearest neighbouring category in BOTH columns, and both
+# columns are then recoded to 1, ..., K with the same K.
+# @keywords internal
+.align_categories <- function(y, n_items) {
+  for (i in seq_len(n_items)) {
+    j <- i + n_items
+    a <- y[, i]; b <- y[, j]
+    repeat {
+      cats <- sort(unique(c(a, b)[!is.na(c(a, b))]))
+      both <- intersect(unique(a[!is.na(a)]), unique(b[!is.na(b)]))
+      miss <- setdiff(cats, both)
+      if (!length(miss) || length(cats) < 2L) break
+      m <- miss[1L]
+      k <- match(m, cats)
+      target <- if (k > 1L) cats[k - 1L] else cats[k + 1L]
+      a[!is.na(a) & a == m] <- target
+      b[!is.na(b) & b == m] <- target
+    }
+    cats <- sort(unique(c(a, b)[!is.na(c(a, b))]))
+    y[, i] <- match(a, cats)
+    y[, j] <- match(b, cats)
+  }
+  y
 }

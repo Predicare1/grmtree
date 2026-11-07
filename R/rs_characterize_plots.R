@@ -22,7 +22,7 @@
 
 # ---- Standardize RS type: keep only the 3 real types + None ----
 .clean_rs_type <- function(rs_type) {
-  ifelse(rs_type %in% c("Recalibration", "Reprioritization", "Both"),
+  ifelse(rs_type %in% c("Recalibration", "Reprioritization", "Both", "Undetermined"),
          rs_type, "None")
 }
 
@@ -31,6 +31,7 @@
   "Recalibration"    = "#3182BD",   # blue
   "Reprioritization" = "#E6550D",   # orange-red
   "Both"             = "#756BB1",   # purple
+  "Undetermined"     = "#636363",   # dark gray: RS detected, type not resolved
   "None"             = "#D9D9D9"    # light gray
 )
 
@@ -242,7 +243,7 @@ plot_rs_tree <- function(tree, rs, item_labels = NULL, tnex = 2.5,
   )
 
   # ---- Legend at bottom with colored squares ----
-  legend_types <- c("Recalibration", "Reprioritization", "Both", "None")
+  legend_types <- c("Recalibration", "Reprioritization", "Both", "Undetermined", "None")
   legend_cols  <- .rs_colors[legend_types]
   n_legend <- length(legend_types)
 
@@ -478,7 +479,7 @@ plot_rs_heatmap <- function(rs, item_labels = NULL, node_labels = NULL,
       rs_type <- rs_matrix[i, j]
       is_sig <- sig_matrix[i, j]
 
-      if (is_sig && rs_type %in% c("Recalibration", "Reprioritization", "Both")) {
+      if (is_sig && rs_type %in% c("Recalibration", "Reprioritization", "Both", "Undetermined")) {
         fill_col <- .rs_colors[rs_type]
       } else {
         fill_col <- "#F0F0F0"
@@ -515,7 +516,7 @@ plot_rs_heatmap <- function(rs, item_labels = NULL, node_labels = NULL,
   }
 
   # ---- Legend ----
-  legend_types <- c("Recalibration", "Reprioritization", "Both", "None")
+  legend_types <- c("Recalibration", "Reprioritization", "Both", "Undetermined", "None")
   legend_x <- 1 - right_margin + 0.02
   legend_y_start <- 0.85
 

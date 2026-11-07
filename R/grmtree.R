@@ -11,6 +11,8 @@
 #' @param estfun Logical indicating whether to compute empirical estimating
 #'   functions
 #' @param object Logical indicating whether to return the full mirt model object
+#' @param prefix Optional name of the response variable; if all item names
+#'   start with it (as when called from \code{mob}), it is removed.
 #' @param ... Additional arguments passed to \code{mirt::mirt}
 #'
 #' @return A list containing: \item{coefficients}{Item parameter estimates}
@@ -21,7 +23,7 @@
 #' @importFrom mirt mirt logLik
 #' @keywords internal
 grmfit <- function(y, x = NULL, start = NULL, weights = NULL, offset = NULL, ...,
-                   estfun = FALSE, object = FALSE) {
+                   estfun = FALSE, object = FALSE, prefix = NULL) {
 
 
 
@@ -33,6 +35,9 @@ grmfit <- function(y, x = NULL, start = NULL, weights = NULL, offset = NULL, ...
   if (ncol(y) < 2) {
     stop("Response matrix must have at least 2 columns (items). Found: ", ncol(y))
   }
+
+  # Drop the response-variable prefix that partykit adds to the item names
+  y <- .clean_item_names(y, prefix)
 
   # Fit GRM model
   fit <- mirt::mirt(y, model = 1, itemtype = 'graded', SE = FALSE, verbose = FALSE, ...)
@@ -46,9 +51,10 @@ grmfit <- function(y, x = NULL, start = NULL, weights = NULL, offset = NULL, ...
     stop("Model fitting failed - no coefficients returned")
   }
 
-  # Return list
+  # Return list (coefficients as a named vector of the IRT item parameters,
+  # so that coef(), print() and logLik() report the correct dimension)
   list(
-    coefficients = coefs,
+    coefficients = .flatten_items(coefs$items),
     objfun = -as.numeric(mirt::logLik(fit)),
     estfun = if (estfun) mirt::estfun.AllModelClass(fit) else NULL,
     object = if (object) fit else NULL
@@ -317,6 +323,17 @@ grmtree <- function(formula, data, na.action = na.omit,
   .cv <- .pv[vapply(.pv, function(v) v %in% names(data) && is.character(data[[v]]), logical(1L))]
   if (length(.cv)) for (v in .cv) data[[v]] <- factor(data[[v]])
 
+  # Fitting function that knows the response name (to clean item names)
+  resp_name <- paste(deparse(formula[[2L]]), collapse = "")
+  grmfit_node <- function(y, x = NULL, start = NULL, weights = NULL,
+                          offset = NULL, ..., estfun = FALSE, object = FALSE) {
+    grmfit(y = y, x = x, start = start, weights = weights, offset = offset,
+           ..., estfun = estfun, object = object, prefix = resp_name)
+  }
+
+  # The mtry argument, if given, overrides control$mtry
+  if (!is.null(mtry)) control$mtry <- mtry
+
   # Get p_adjust method from control
   p_adjust <- if (!is.null(control$p_adjust)) control$p_adjust else "none"
   alpha <- control$alpha
@@ -328,18 +345,15 @@ grmtree <- function(formula, data, na.action = na.omit,
     # Use documented initial_alpha
     initial_alpha <- control$initial_alpha
 
-    ctrl_full <- partykit::mob_control(
-      minbucket = minbucket,
-      bonferroni = FALSE,
-      alpha = initial_alpha,
-      ytype = "matrix",
-      mtry = if (!is.null(control$mtry)) control$mtry else Inf
-    )
+    # Keep all other mob_control() settings (e.g., ordinal, maxdepth, mtry)
+    ctrl_full <- control
+    ctrl_full$alpha <- initial_alpha
+    ctrl_full$bonferroni <- FALSE
 
     rval <- partykit::mob(
       formula = formula,
       data = data,
-      fit = grmfit,
+      fit = grmfit_node,
       control = ctrl_full,
       na.action = na.action
     )
@@ -352,7 +366,7 @@ grmtree <- function(formula, data, na.action = na.omit,
     rval <- partykit::mob(
       formula = formula,
       data = data,
-      fit = grmfit,
+      fit = grmfit_node,
       control = control,
       na.action = na.action
     )
@@ -364,4 +378,54 @@ grmtree <- function(formula, data, na.action = na.omit,
   class(rval) <- c("grmtree", "modelparty", "party")
 
   return(rval)
+}
+
+
+# Internal helper: strip the response-variable name that partykit prepends to
+# the column names of a matrix-valued response (e.g., "respMOS_Listen").
+# @keywords internal
+.clean_item_names <- function(y, prefix = NULL) {
+  cn <- colnames(y)
+  if (!is.null(cn) && !is.null(prefix) && nzchar(prefix) &&
+      all(startsWith(cn, prefix)) && all(nchar(cn) > nchar(prefix))) {
+    cn <- substring(cn, nchar(prefix) + 1L)
+    cn <- sub("^\\.", "", cn)
+    colnames(y) <- cn
+  }
+  y
+}
+
+# Internal helper: flatten a mirt item-parameter matrix (IRT form) into a
+# named vector "item.a", "item.b1", ...; missing thresholds are dropped.
+# @keywords internal
+.flatten_items <- function(items) {
+  v <- as.vector(t(items))
+  names(v) <- as.vector(t(outer(rownames(items), colnames(items), paste, sep = ".")))
+  v[!is.na(v)]
+}
+
+#' Log-Likelihood of a GRM Tree
+#'
+#' Returns the log-likelihood of a fitted (cross-sectional or longitudinal)
+#' GRM tree, i.e., the sum of the maximized marginal log-likelihoods of the
+#' terminal-node models. The degrees of freedom count the estimated parameters
+#' in all terminal nodes plus one for each split, following the convention of
+#' \code{partykit}. This makes \code{AIC()} and \code{BIC()} available.
+#'
+#' @param object A \code{grmtree} or \code{longitudinal_grmtree} object.
+#' @param ... Currently unused.
+#'
+#' @return An object of class \code{"logLik"}.
+#'
+#' @exportS3Method stats::logLik
+logLik.grmtree <- function(object, ...) {
+  tn <- partykit::nodeids(object, terminal = TRUE)
+  info <- partykit::nodeapply(object, ids = tn, FUN = function(n) {
+    inf <- partykit::info_node(n)
+    np <- if (!is.null(inf$object)) mirt::extract.mirt(inf$object, "nest") else length(inf$coefficients)
+    c(-inf$objfun, np, inf$nobs)
+  })
+  info <- do.call(rbind, info)
+  structure(sum(info[, 1L]), df = sum(info[, 2L]) + (length(tn) - 1L),
+            nobs = sum(info[, 3L]), class = "logLik")
 }

@@ -12,7 +12,8 @@ longitudinal_grmfit(
   offset = NULL,
   ...,
   estfun = FALSE,
-  object = FALSE
+  object = FALSE,
+  prefix = NULL
 )
 }
 \arguments{
@@ -44,6 +45,9 @@ contributions for each individual. Default is \code{FALSE}.}
 \code{\link[mirt]{mirt}} model object. Default is \code{FALSE}. Set to
 \code{TRUE} when the fitted model is needed for post-hoc analyses (e.g., in
 \code{\link{rs_characterize}}).}
+
+\item{prefix}{Optional name of the response variable; if all item names
+start with it (as when called from \code{mob}), it is removed.}
 }
 \value{
 A list containing:

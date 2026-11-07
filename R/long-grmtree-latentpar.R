@@ -90,5 +90,7 @@ latentpar_longitudinal_grmtree <- function(object, node = NULL, ...) {
     )
   })
 
-  do.call(rbind, results)
+  out <- do.call(rbind, results)
+  rownames(out) <- NULL
+  out
 }
