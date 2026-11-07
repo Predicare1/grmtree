@@ -10,10 +10,11 @@
 ## Design (v2):
 ##   * Item-level testing runs ONLY in nodes whose omnibus RS survives the
 ##     across-node adjustment (RS_detected == TRUE), never on the raw p-value.
+##   * DETECTION of an item uses a joint LRT (discrimination and thresholds),
+##     adjusted across items; optional iterative purification (purify = TRUE).
 ##   * The TYPE of a flagged item (recalibration / reprioritization / both) is
-##     decided by nested likelihood-ratio tests on the parameter SETS -- NOT by
-##     an arbitrary magnitude cut-point. Magnitude is reported separately as an
-##     effect size. "None" therefore means "no statistically significant shift".
+##     read from the estimated IRT-metric changes relative to rs_threshold.
+##     "None" means "not flagged".
 ##
 ## Author: Olayinka Arimoro
 ## Date: February 2026 (item-level redesign: 2026)
@@ -58,16 +59,22 @@
 #'   \code{RS_detected} column is set from these adjusted p-values, and it is
 #'   \code{RS_detected} that gates item-level testing. Only applied when there
 #'   are two or more nodes.
-#' @param rs_threshold Numeric magnitude threshold on the IRT parameter scale,
-#'   used \strong{only for the descriptive effect-size annotation}
-#'   (\code{RS_magnitude}), \strong{not} for deciding the RS type. Default
-#'   \code{0.3}. A flagged item is annotated \code{"large"} when its larger
-#'   parameter change (max threshold shift or absolute discrimination change)
-#'   is at least \code{rs_threshold}, and \code{"small"} otherwise. The type
-#'   itself is always determined by the component LRTs (see Details), so the
-#'   choice of \code{rs_threshold} never changes which items are flagged or how
-#'   they are typed; it only affects the type label when both changes are
-#'   sub-threshold, and the \code{RS_magnitude} annotation.
+#' @param rs_threshold Numeric. Used only when \code{type_method =
+#'   "threshold"}: flagged items are labelled by comparing the estimated
+#'   discrimination change and maximum threshold change with this value
+#'   (default \code{0.3}). Ignored for the default \code{type_method = "wald"}.
+#' @param purify Logical. If \code{TRUE}, item-level tests are purified
+#'   iteratively: items flagged in one pass have their cross-occasion
+#'   constraints released in the next, so that every item is tested against
+#'   the non-flagged items only, until the set of flagged items no longer
+#'   changes. This reduces false flags caused by response shift in other items
+#'   (contamination). Default \code{FALSE} (single pass against the fully
+#'   constrained model).
+#' @param max_iter Maximum number of purification passes (default \code{10}).
+#' @param type_method How flagged items are labelled. \code{"wald"} (default):
+#'   separate Wald tests of the slope and of the thresholds, each with the
+#'   other free (see Details); no cut-off. \code{"threshold"}: the magnitude
+#'   rule of grmtree <= 0.3.0 based on \code{rs_threshold}.
 #' @param verbose Logical. If \code{TRUE} (default), print progress messages
 #'   for each node during processing.
 #' @param ... Additional arguments passed to \code{\link[mirt]{mirt}} during
@@ -86,8 +93,10 @@
 #'           (RS-allowed) model.}
 #'         \item{\code{LRT_chi2}}{Omnibus LRT statistic
 #'           \eqn{-2(\ell_{con} - \ell_{uncon})}.}
-#'         \item{\code{LRT_df}}{Degrees of freedom (number of freed
-#'           constraints).}
+#'         \item{\code{LRT_df}}{Degrees of freedom: the number of freed
+#'           constraints minus 2, because the follow-up latent mean and variance
+#'           are estimated in the constrained model but not identified in the
+#'           unconstrained one.}
 #'         \item{\code{LRT_p}}{Raw omnibus p-value.}
 #'         \item{\code{LRT_p_adj}}{Omnibus p-value adjusted across nodes
 #'           (present only when \code{global_p_adjust != "none"} and there are
@@ -120,14 +129,18 @@
 #'           the node (\code{p_adjust}); an item is flagged when this is below
 #'           \code{alpha}.}
 #'         \item{\code{RS_type}}{\code{"Recalibration"}, \code{"Reprioritization"},
-#'           \code{"Both"}, or \code{"None"} -- determined by the component LRTs
-#'           (see Details), never by a magnitude cut-point.}
-#'         \item{\code{discr_diff}, \code{thresh_diff}}{Effect sizes: the
+#'           \code{"Both"} or \code{"Undetermined"} for flagged items (see
+#'           Details), \code{"None"} for items not flagged.}
+#'         \item{\code{discr_diff}, \code{thresh_diff}}{Descriptive: the
 #'           absolute T1-vs-T2 discrimination change and the maximum absolute
-#'           threshold change (reported, not used to decide the type).}
+#'           threshold change, from the model in which the item is free.}
+#'         \item{\code{W_slope}, \code{p_slope}, \code{W_location},
+#'           \code{df_location}, \code{p_location}}{The slope and location
+#'           Wald tests for flagged items (\code{type_method = "wald"}).}
+#'         \item{\code{iterations}}{Number of purification passes.}
 #'         \item{\code{RS_magnitude}}{\code{"large"}/\code{"small"} annotation
-#'           of a flagged item's effect size against \code{rs_threshold}
-#'           (\code{NA} for unflagged items).}
+#'           against \code{rs_threshold} (\code{type_method = "threshold"}
+#'           only; otherwise \code{NA}).}
 #'       }
 #'     }
 #'     \item{\code{parameters}}{A named list (one element per node) of
@@ -154,7 +167,7 @@
 #' For each terminal node, a constrained model (all item parameters equal across
 #' waves) and an unconstrained model (all free) are fitted and compared by
 #' \deqn{\chi^2 = -2(\ell_{con} - \ell_{uncon}), \qquad
-#'       \mathrm{df} = \#\{\text{freed constraints}\}.}
+#'       \mathrm{df} = \#\{\text{freed constraints}\} - 2.}
 #' The omnibus p-values are then adjusted \strong{across nodes}
 #' (\code{global_p_adjust}) and \code{RS_detected} is set from the adjusted
 #' p-value. \strong{Item-level testing is performed only for nodes with}
@@ -174,33 +187,36 @@
 #' adjusted joint p-value is below \code{alpha}. Unflagged items are
 #' \code{"None"}.
 #'
-#' ## Type from the estimated parameter changes (not a confounded LRT)
+#' ## Type: two Wald tests, each with the other parameters free (default)
 #'
-#' Once an item is flagged, its \emph{type} is read from the estimated
-#' T1-versus-T2 changes on the IRT (a, b) metric: the absolute discrimination
-#' change (\code{discr_diff}) indicates \strong{reprioritization} and the
-#' maximum absolute threshold change (\code{thresh_diff}) indicates
-#' \strong{recalibration}; both large is \strong{Both}. A flagged item is always
-#' given a real type -- if both changes are below \code{rs_threshold} it takes
-#' the larger one, so a significant item is never left untyped.
+#' Once items are flagged, one model is refitted with standard errors in which
+#' the flagged items are free across occasions and all other items are
+#' constrained (they act as anchors). For each flagged item two Wald tests are
+#' computed in that model:
+#' \itemize{
+#'   \item \strong{slope test} (reprioritization): \eqn{a_{T1} = a_{T2}},
+#'     df = 1;
+#'   \item \strong{location test} (recalibration): \eqn{b_{k,T1} = b_{k,T2}}
+#'     for all \eqn{K-1} thresholds, df = \eqn{K-1}. It is written without a
+#'     ratio as \eqn{a_{T1} d_{k,T2} - a_{T2} d_{k,T1} = 0} (equivalent because
+#'     \eqn{a > 0}), which the delta method approximates well.
+#' }
+#' Each test leaves the other set of parameters free. This matters because
+#' \pkg{mirt} uses the slope-intercept form \eqn{d = -a\,b}: a pure slope
+#' change moves the intercepts \eqn{d} but not the thresholds \eqn{b}, so a
+#' test of \eqn{d} would wrongly react to it, while the test of \eqn{b} does not.
+#' The label is \code{"Reprioritization"} if only the slope test is
+#' significant, \code{"Recalibration"} if only the location test is,
+#' \code{"Both"} if both are, and \code{"Undetermined"} if the item is flagged
+#' by the joint test but neither component test is significant on its own
+#' (the shift is real but cannot be attributed with confidence). No magnitude
+#' cut-off is involved. The estimated changes (\code{discr_diff},
+#' \code{thresh_diff}) are reported as descriptive information only.
 #'
-#' This is deliberate. A tempting alternative -- decomposing the shift with
-#' nested LRTs that free the discrimination or the thresholds in turn -- does
-#' \strong{not} work here, because \pkg{mirt} parameterizes the graded model in
-#' slope-intercept form where the intercept \eqn{d = -a\,b}. A \emph{pure}
-#' discrimination change (\eqn{a} moves, \eqn{b} constant) therefore forces the
-#' intercepts to move, so any LRT that frees the intercepts fires for a
-#' reprioritization item, spuriously flagging recalibration. The estimated
-#' \eqn{a} and \eqn{b} changes, in contrast, separate the two shift types
-#' cleanly (\eqn{b = -d/a} un-confounds them), which is why the type is read
-#' from them. Detection remains a likelihood-ratio test; only the attribution of
-#' \emph{which} parameter moved uses the estimated changes, and both are
-#' reported (\code{discr_diff}, \code{thresh_diff}, \code{RS_magnitude}) so the
-#' classification is fully transparent.
-#'
-#' Separating \emph{detection} (is there a shift? -- LRT), \emph{type} (which
-#' parameter moved? -- estimated change), and \emph{magnitude} (how large? --
-#' effect size) is the point of the redesign.
+#' \code{type_method = "threshold"} restores the rule of grmtree <= 0.3.0,
+#' which labels flagged items by comparing \code{discr_diff} and
+#' \code{thresh_diff} with \code{rs_threshold}; it is kept for reproducing
+#' earlier analyses.
 #'
 #' ## Hierarchical error control
 #'
@@ -249,7 +265,7 @@
 #'     education + comorbidity_count + ever_smoker,
 #'   data = ld, n_items = 8, control = grmtree.control(minbucket = 200))
 #'
-#' # Default: Bonferroni across nodes and within-node; type from component LRTs
+#' # Default: Bonferroni across nodes and within-node; type from estimated changes
 #' rs <- rs_characterize(ltree)
 #' print(rs)
 #'
@@ -274,7 +290,10 @@ rs_characterize <- function(object, node = NULL,
                             p_adjust = "bonferroni",
                             global_p_adjust = "bonferroni",
                             rs_threshold = 0.3,
+                            purify = FALSE, max_iter = 10L,
+                            type_method = c("wald", "threshold"),
                             verbose = TRUE, ...) {
+  type_method <- match.arg(type_method)
   # ---- Input validation ----
 
   if (!inherits(object, "longitudinal_grmtree"))
@@ -296,10 +315,17 @@ rs_characterize <- function(object, node = NULL,
   resp_name <- as.character(tree_formula[[2]])
 
   # ---- Build model specification strings ----
+  ## Models with (some) cross-occasion item constraints identify the follow-up
+  ## mean and variance, which are then freely estimated (as in Phase 1). In the
+  ## fully unconstrained model they are not identified and are fixed at 0 and 1.
   model_str_base <- paste0(
     'Theta_T1 = 1-', n_items, '\n',
     'Theta_T2 = ', n_items + 1, '-', 2 * n_items, '\n',
-    'COV = Theta_T1*Theta_T2\nMEAN = Theta_T2')
+    'COV = Theta_T1*Theta_T2, Theta_T2*Theta_T2\nMEAN = Theta_T2')
+  model_str_uncon <- paste0(
+    'Theta_T1 = 1-', n_items, '\n',
+    'Theta_T2 = ', n_items + 1, '-', 2 * n_items, '\n',
+    'COV = Theta_T1*Theta_T2')
 
   ## --- helper: per-item constraint tuples from the node's category counts ---
   make_tuples <- function(n_cats_per_col) {
@@ -318,7 +344,7 @@ rs_characterize <- function(object, node = NULL,
 
   ## --- helper: fit a graded two-factor model given a CONSTRAIN string ---
   fit_model <- function(y, constrain) {
-    m2s <- if (is.null(constrain) || !nzchar(constrain)) model_str_base
+    m2s <- if (is.null(constrain) || !nzchar(constrain)) model_str_uncon
     else paste0(model_str_base, '\nCONSTRAIN = ', constrain)
     tryCatch(
       mirt::mirt(data = y, model = mirt::mirt.model(m2s), itemtype = 'graded',
@@ -342,6 +368,7 @@ rs_characterize <- function(object, node = NULL,
     if (is.null(node_data) || nrow(node_data) == 0) {
       global_results[[as.character(nd)]] <- na_global(nd); next }
     y <- node_data[[resp_name]]; if (!is.matrix(y)) y <- as.matrix(y)
+    y <- .align_categories(y, n_items)
     n_node <- nrow(y)
     n_cats_per_col <- apply(y, 2, function(col) length(unique(na.omit(col))))
     tup <- make_tuples(n_cats_per_col)
@@ -354,7 +381,10 @@ rs_characterize <- function(object, node = NULL,
       global_results[[as.character(nd)]] <- na_global(nd, n_node); next }
 
     ll_con <- as.numeric(logLik(fit_con)); ll_uncon <- as.numeric(logLik(fit_uncon))
-    lrt_chi2 <- -2 * (ll_con - ll_uncon); lrt_df <- n_constraints
+    lrt_chi2 <- -2 * (ll_con - ll_uncon)
+    ## the constrained model has the follow-up mean and variance as two extra
+    ## free parameters, so the omnibus test has n_constraints - 2 df
+    lrt_df <- mirt::extract.mirt(fit_uncon, 'nest') - mirt::extract.mirt(fit_con, 'nest')
     lrt_p <- pchisq(lrt_chi2, df = lrt_df, lower.tail = FALSE)
     pseudo_r2 <- 1 - (ll_uncon / ll_con)
     npar_con   <- mirt::extract.mirt(fit_con, 'nest')
@@ -435,52 +465,106 @@ rs_characterize <- function(object, node = NULL,
       ##               slope-intercept (a, d) parameterization confounds an
       ##               LRT decomposition (d = -a*b, so a pure discrimination
       ##               change forces the intercepts, firing a threshold LRT).
-      rows <- lapply(seq_len(M), function(m) {
-        con_str <- paste(c(a_all[-m], unlist(thr_all[-m])), collapse = ", ")
-        fit_ab  <- fit_model(y, con_str)
-        df_j    <- 1 + length(thr_all[[m]])
-        if (is.null(fit_ab))
-          return(data.frame(Node = nd, Item = m, LRT_chi2 = NA, LRT_df = df_j,
-                            LRT_p = NA, discr_diff = NA, thresh_diff = NA,
-                            stringsAsFactors = FALSE))
-        ll_ab <- as.numeric(logLik(fit_ab))
-        chi2  <- -2 * (ll_con - ll_ab)
-        p     <- pchisq(chi2, df = df_j, lower.tail = FALSE)
-        co <- mirt::coef(fit_ab, IRTpars = TRUE, simplify = TRUE)$items
-        bn <- grep("^b\\d+$", colnames(co), value = TRUE)
-        data.frame(Node = nd, Item = m, LRT_chi2 = round(chi2, 3), LRT_df = df_j,
-                   LRT_p = round(p, 6),
-                   discr_diff  = round(abs(co[m, "a1"] - co[m + M, "a2"]), 4),
-                   thresh_diff = round(max(abs(co[m, bn] - co[m + M, bn]), na.rm = TRUE), 4),
-                   stringsAsFactors = FALSE)
-      })
-      idf <- do.call(rbind, rows)
+      ## One pass of item tests given a set F of items whose constraints are
+      ## already released (F = empty set gives the original one-at-a-time
+      ## tests against the fully constrained model). For m not in F the
+      ## reference model frees F and the test additionally frees m; for m in F
+      ## the test compares the model freeing F with the model that restores
+      ## m's constraints. Each test therefore uses only the non-flagged items
+      ## as anchors (iterative purification).
+      con_except <- function(free) paste(c(a_all[-free], unlist(thr_all[-free])),
+                                         collapse = ", ")
+      item_pass <- function(F) {
+        fit_ref <- if (length(F)) fit_model(y, con_except(F)) else NULL
+        ll_ref  <- if (length(F)) {
+          if (is.null(fit_ref)) NA_real_ else as.numeric(logLik(fit_ref))
+        } else ll_con
+        rows <- lapply(seq_len(M), function(m) {
+          df_j <- 1 + length(thr_all[[m]])
+          if (m %in% F) {
+            fit_small <- fit_model(y, con_except(setdiff(F, m)))
+            fit_big   <- fit_ref
+          } else {
+            fit_small <- NULL
+            fit_big   <- fit_model(y, con_except(c(F, m)))
+          }
+          ll_small <- if (m %in% F) {
+            if (is.null(fit_small)) NA_real_ else as.numeric(logLik(fit_small))
+          } else ll_ref
+          if (is.null(fit_big) || is.na(ll_small))
+            return(data.frame(Node = nd, Item = m, LRT_chi2 = NA, LRT_df = df_j,
+                              LRT_p = NA, discr_diff = NA, thresh_diff = NA,
+                              stringsAsFactors = FALSE))
+          chi2 <- -2 * (ll_small - as.numeric(logLik(fit_big)))
+          p    <- pchisq(chi2, df = df_j, lower.tail = FALSE)
+          co <- mirt::coef(fit_big, IRTpars = TRUE, simplify = TRUE)$items
+          bn <- grep("^b\\d+$", colnames(co), value = TRUE)
+          data.frame(Node = nd, Item = m, LRT_chi2 = round(chi2, 3), LRT_df = df_j,
+                     LRT_p = round(p, 6),
+                     discr_diff  = round(abs(co[m, "a1"] - co[m + M, "a2"]), 4),
+                     thresh_diff = round(max(abs(co[m, bn] - co[m + M, bn]), na.rm = TRUE), 4),
+                     stringsAsFactors = FALSE)
+        })
+        idf <- do.call(rbind, rows)
+        ## item DETECTION: adjust joint p across items within the node
+        idf$LRT_p_adj <- if (p_adjust != "none")
+          round(p.adjust(idf$LRT_p, method = p_adjust), 6) else round(idf$LRT_p, 6)
+        idf
+      }
 
-      ## item DETECTION: adjust joint p across items within the node
-      idf$LRT_p_adj <- if (p_adjust != "none")
-        round(p.adjust(idf$LRT_p, method = p_adjust), 6) else round(idf$LRT_p, 6)
+      F_set <- integer(0); iter <- 0L
+      repeat {
+        iter <- iter + 1L
+        idf <- item_pass(F_set)
+        F_new <- idf$Item[!is.na(idf$LRT_p_adj) & idf$LRT_p_adj < alpha]
+        if (!purify || setequal(F_new, F_set) || iter >= max_iter) break
+        if (length(F_new) >= M - 1L) {
+          warning("Node ", nd, ": fewer than two anchor items left; ",
+                  "purification stopped.")
+          break
+        }
+        F_set <- sort(F_new)
+      }
+      idf$iterations <- iter
       flagged <- !is.na(idf$LRT_p_adj) & idf$LRT_p_adj < alpha
 
-      ## item TYPE from the IRT-metric parameter changes (effect sizes).
-      ## A flagged item is ALWAYS given a real type (recal/reprior/both); if
-      ## both changes are below rs_threshold it takes the larger one (never a
-      ## "significant-but-untyped" limbo). rs_threshold is a practical-magnitude
-      ## criterion here, reported alongside the raw changes -- not a test.
-      repri <- flagged & !is.na(idf$discr_diff)  & idf$discr_diff  > rs_threshold
-      recal <- flagged & !is.na(idf$thresh_diff) & idf$thresh_diff > rs_threshold
-      rs_type <- rep("None", nrow(idf))
-      rs_type[repri & recal]  <- "Both"
-      rs_type[repri & !recal] <- "Reprioritization"
-      rs_type[!repri & recal] <- "Recalibration"
-      edge <- flagged & !repri & !recal                 # flagged, both sub-threshold
-      dom_repri <- !is.na(idf$discr_diff) & !is.na(idf$thresh_diff) &
-        idf$discr_diff >= idf$thresh_diff
-      rs_type[edge &  dom_repri] <- "Reprioritization"
-      rs_type[edge & !dom_repri] <- "Recalibration"
-      idf$RS_type <- rs_type
-      idf$RS_magnitude <- ifelse(flagged,
-                                 ifelse(pmax(idf$discr_diff, idf$thresh_diff, na.rm = TRUE) >= rs_threshold,
-                                        "large", "small"), NA_character_)
+      if (type_method == "wald") {
+        ## item TYPE by two tests, each with the other set of parameters free
+        ## (see .rs_type_tests); no magnitude cut-off is involved.
+        tt <- .rs_type_tests(y, a_all, thr_all, M,
+                             flagged_items = idf$Item[flagged],
+                             model_str = model_str_base, ...)
+        idf <- cbind(idf, tt[match(idf$Item, tt$Item), c("W_slope", "p_slope",
+                     "W_location", "df_location", "p_location")])
+        rownames(idf) <- NULL
+        sl <- flagged & !is.na(idf$p_slope)    & idf$p_slope    < alpha
+        lo <- flagged & !is.na(idf$p_location) & idf$p_location < alpha
+        rs_type <- rep("None", nrow(idf))
+        rs_type[flagged]        <- "Undetermined"
+        rs_type[sl & lo]        <- "Both"
+        rs_type[sl & !lo]       <- "Reprioritization"
+        rs_type[!sl & lo]       <- "Recalibration"
+        idf$RS_type <- rs_type
+        idf$RS_magnitude <- NA_character_
+      } else {
+        ## legacy rule (grmtree <= 0.3.0): label from the size of the estimated
+        ## changes relative to rs_threshold.
+        repri <- flagged & !is.na(idf$discr_diff)  & idf$discr_diff  > rs_threshold
+        recal <- flagged & !is.na(idf$thresh_diff) & idf$thresh_diff > rs_threshold
+        rs_type <- rep("None", nrow(idf))
+        rs_type[repri & recal]  <- "Both"
+        rs_type[repri & !recal] <- "Reprioritization"
+        rs_type[!repri & recal] <- "Recalibration"
+        edge <- flagged & !repri & !recal
+        dom_repri <- !is.na(idf$discr_diff) & !is.na(idf$thresh_diff) &
+          idf$discr_diff >= idf$thresh_diff
+        rs_type[edge &  dom_repri] <- "Reprioritization"
+        rs_type[edge & !dom_repri] <- "Recalibration"
+        idf$RS_type <- rs_type
+        idf$RS_magnitude <- ifelse(flagged,
+          ifelse(pmax(idf$discr_diff, idf$thresh_diff, na.rm = TRUE) >= rs_threshold,
+                 "large", "small"), NA_character_)
+      }
       item_results[[as.character(nd)]] <- idf
       if (verbose) {
         idf <- item_results[[as.character(nd)]]; fl <- idf[idf$RS_type != "None", ]
@@ -495,7 +579,8 @@ rs_characterize <- function(object, node = NULL,
   out <- list(
     global = global_df, item_level = item_level_df, parameters = param_list,
     n_items = n_items, alpha = alpha, p_adjust = p_adjust,
-    global_p_adjust = global_p_adjust, rs_threshold = rs_threshold)
+    global_p_adjust = global_p_adjust, rs_threshold = rs_threshold,
+    purify = purify, type_method = type_method)
   class(out) <- "rs_characterization"
   out
 }
@@ -576,12 +661,21 @@ print.rs_characterization <- function(x, ...) {
   # Print item-level results if present
   if (!is.null(x$item_level)) {
     cat("--- Item-Level RS Testing ---\n")
-    cat("(Items freed one at a time from the constrained model)\n")
+    if (isTRUE(x$purify)) {
+      cat("(Items tested against purified anchors: flagged items freed iteratively)\n")
+    } else {
+      cat("(Items freed one at a time from the constrained model)\n")
+    }
     has_adj <- "LRT_p_adj" %in% colnames(x$item_level)
     if (has_adj) {
       cat(sprintf("P-values adjusted using '%s' method\n", x$p_adjust))
     }
-    cat(sprintf("RS classification threshold: %.2f\n", x$rs_threshold))
+    if (identical(x$type_method, "threshold")) {
+      cat(sprintf("RS type: legacy magnitude rule, threshold %.2f\n", x$rs_threshold))
+    } else {
+      cat("RS type: Wald tests of slope (reprioritization) and location\n")
+      cat("(recalibration), each with the other parameters free\n")
+    }
     cat("\n")
 
     for (nd in unique(x$item_level$Node)) {
@@ -596,6 +690,9 @@ print.rs_characterization <- function(x, ...) {
       for (j in 1:nrow(node_items)) {
         mag <- if ("RS_magnitude" %in% names(node_items)) node_items$RS_magnitude[j] else NA
         mag_txt <- if (!is.na(mag)) paste0(" [", mag, "]") else ""
+        if ("p_slope" %in% names(node_items) && !is.na(node_items$p_slope[j]))
+          mag_txt <- paste0(mag_txt, sprintf(" (slope p = %.3f, location p = %.3f)",
+                                             node_items$p_slope[j], node_items$p_location[j]))
         if (has_adj) {
           cat(sprintf("  Item %2d: chi2 = %7.3f, df = %d, p = %.6f, p_adj = %.6f  %-18s%s%s\n",
                       node_items$Item[j],
@@ -622,4 +719,90 @@ print.rs_characterization <- function(x, ...) {
   }
 
   invisible(x)
+}
+
+
+# Internal: type tests for the items flagged in one node.
+#
+# One model is fitted with standard errors: the flagged items are free across
+# occasions, every other item is constrained (the anchors, as after
+# purification), and the follow-up mean and variance are free. For each flagged
+# item m, with a = slope and d = intercepts (d = -a b) at T1 (L) and T2 (R):
+#   slope test    : Wald test of a_R = a_L                          (df = 1)
+#   location test : Wald test of b_R = b_L for all K - 1 thresholds, written
+#                   without a ratio as a_L d_R,k - a_R d_L,k = 0     (df = K - 1)
+# Each test leaves the other set of parameters free, so a slope change cannot
+# show up as a location change (it changes d, but not b) and vice versa.
+# Both statistics use the delta-method covariance from mirt's vcov().
+# @keywords internal
+.rs_type_tests <- function(y, a_all, thr_all, M, flagged_items, model_str, ...) {
+  empty <- data.frame(Item = integer(0), W_slope = numeric(0), p_slope = numeric(0),
+                      W_location = numeric(0), df_location = integer(0),
+                      p_location = numeric(0), delta_a = numeric(0),
+                      delta_b_max = numeric(0))
+  if (!length(flagged_items)) return(empty)
+  na_out <- data.frame(Item = flagged_items, W_slope = NA_real_, p_slope = NA_real_,
+                       W_location = NA_real_, df_location = NA_integer_,
+                       p_location = NA_real_, delta_a = NA_real_,
+                       delta_b_max = NA_real_)
+  keep <- setdiff(seq_len(M), flagged_items)
+  if (!length(keep)) {
+    warning("Type tests: every item is flagged, so no anchors remain; ",
+            "flagged items are labelled 'Undetermined'.")
+    return(na_out)
+  }
+  con <- paste(c(a_all[keep], unlist(thr_all[keep])), collapse = ", ")
+  m2s <- if (nzchar(con)) paste0(model_str, "\nCONSTRAIN = ", con) else model_str
+  fit <- tryCatch(suppressWarnings(mirt::mirt(y, mirt::mirt.model(m2s),
+           itemtype = "graded", SE = TRUE, verbose = FALSE,
+           technical = list(NCYCLES = 1000), ...)), error = function(e) NULL)
+  if (is.null(fit)) {
+    warning("Type tests: model with standard errors could not be fitted; ",
+            "flagged items are labelled 'Undetermined'.")
+    return(na_out)
+  }
+  V <- tryCatch(mirt::vcov(fit), error = function(e) NULL)
+  if (is.null(V) || any(!is.finite(diag(V)))) {
+    warning("Type tests: standard errors unavailable; flagged items are ",
+            "labelled 'Undetermined'.")
+    return(na_out)
+  }
+  ## vcov rows are labelled "<par>.<parnum>[.<parnum>...]"; map parnum -> row
+  idx <- list()
+  for (r in seq_len(nrow(V))) {
+    for (p in strsplit(rownames(V)[r], ".", fixed = TRUE)[[1]][-1]) idx[[p]] <- r
+  }
+  v <- mirt::mod2values(fit)
+  cn <- colnames(y)
+  rows <- lapply(flagged_items, function(m) {
+    getp <- function(item, slope) {
+      s <- v[v$item == item & v$est, ]
+      dn <- grep("^d[0-9]+$", s$name, value = TRUE)
+      dn <- dn[order(as.integer(sub("^d", "", dn)))]
+      s[match(c(slope, dn), s$name), ]
+    }
+    L <- getp(cn[m], "a1"); R <- getp(cn[m + M], "a2")
+    if (anyNA(L$parnum) || anyNA(R$parnum) || nrow(L) != nrow(R))
+      return(na_out[na_out$Item == m, ])
+    pr <- unlist(idx[as.character(c(L$parnum, R$parnum))])
+    if (length(pr) != nrow(L) + nrow(R)) return(na_out[na_out$Item == m, ])
+    S <- V[pr, pr]
+    K1 <- nrow(L) - 1L
+    aL <- L$value[1]; dL <- L$value[-1]; aR <- R$value[1]; dR <- R$value[-1]
+    gs <- c(-1, rep(0, K1), 1, rep(0, K1))
+    Ws <- (aR - aL)^2 / as.numeric(t(gs) %*% S %*% gs)
+    h <- aL * dR - aR * dL
+    H <- matrix(0, K1, 2L * (K1 + 1L))
+    H[, 1] <- dR;           H[cbind(seq_len(K1), 1 + seq_len(K1))] <- -aR
+    H[, K1 + 2] <- -dL;     H[cbind(seq_len(K1), K1 + 2 + seq_len(K1))] <- aL
+    Wl <- tryCatch(as.numeric(t(h) %*% solve(H %*% S %*% t(H), h)),
+                   error = function(e) NA_real_)
+    data.frame(Item = m, W_slope = Ws,
+               p_slope = stats::pchisq(Ws, 1, lower.tail = FALSE),
+               W_location = Wl, df_location = K1,
+               p_location = stats::pchisq(Wl, K1, lower.tail = FALSE),
+               delta_a = aR - aL,
+               delta_b_max = max(abs((-dR / aR) - (-dL / aL))))
+  })
+  do.call(rbind, rows)
 }

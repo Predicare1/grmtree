@@ -89,5 +89,5 @@ test_that("discrimination parameters are reasonable", {
   expect_true(all(discr$Discrimination < 4))
 
   # Check items are correctly labeled
-  expect_true(all(discr$Item %in% paste0("resp",colnames(asti[, 1:4]))))
+  expect_true(all(discr$Item %in% colnames(asti[, 1:4])))
 })

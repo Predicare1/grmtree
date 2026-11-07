@@ -12,6 +12,9 @@ rs_characterize(
   p_adjust = "bonferroni",
   global_p_adjust = "bonferroni",
   rs_threshold = 0.3,
+  purify = FALSE,
+  max_iter = 10L,
+  type_method = c("wald", "threshold"),
   verbose = TRUE,
   ...
 )
@@ -50,16 +53,25 @@ the same as \code{p_adjust}. Default \code{"bonferroni"}. The
 \code{RS_detected} that gates item-level testing. Only applied when there
 are two or more nodes.}
 
-\item{rs_threshold}{Numeric magnitude threshold on the IRT parameter scale,
-used \strong{only for the descriptive effect-size annotation}
-(\code{RS_magnitude}), \strong{not} for deciding the RS type. Default
-\code{0.3}. A flagged item is annotated \code{"large"} when its larger
-parameter change (max threshold shift or absolute discrimination change)
-is at least \code{rs_threshold}, and \code{"small"} otherwise. The type
-itself is always determined by the component LRTs (see Details), so the
-choice of \code{rs_threshold} never changes which items are flagged or how
-they are typed; it only affects the type label when both changes are
-sub-threshold, and the \code{RS_magnitude} annotation.}
+\item{rs_threshold}{Numeric. Used only when \code{type_method =
+  "threshold"}: flagged items are labelled by comparing the estimated
+discrimination change and maximum threshold change with this value
+(default \code{0.3}). Ignored for the default \code{type_method = "wald"}.}
+
+\item{purify}{Logical. If \code{TRUE}, item-level tests are purified
+iteratively: items flagged in one pass have their cross-occasion
+constraints released in the next, so that every item is tested against
+the non-flagged items only, until the set of flagged items no longer
+changes. This reduces false flags caused by response shift in other items
+(contamination). Default \code{FALSE} (single pass against the fully
+constrained model).}
+
+\item{max_iter}{Maximum number of purification passes (default \code{10}).}
+
+\item{type_method}{How flagged items are labelled. \code{"wald"} (default):
+separate Wald tests of the slope and of the thresholds, each with the
+other free (see Details); no cut-off. \code{"threshold"}: the magnitude
+rule of grmtree <= 0.3.0 based on \code{rs_threshold}.}
 
 \item{verbose}{Logical. If \code{TRUE} (default), print progress messages
 for each node during processing.}
@@ -81,8 +93,10 @@ and columns:
 (RS-allowed) model.}
 \item{\code{LRT_chi2}}{Omnibus LRT statistic
 \eqn{-2(\ell_{con} - \ell_{uncon})}.}
-\item{\code{LRT_df}}{Degrees of freedom (number of freed
-constraints).}
+\item{\code{LRT_df}}{Degrees of freedom: the number of freed
+constraints minus 2, because the follow-up latent mean and variance
+are estimated in the constrained model but not identified in the
+unconstrained one.}
 \item{\code{LRT_p}}{Raw omnibus p-value.}
 \item{\code{LRT_p_adj}}{Omnibus p-value adjusted across nodes
 (present only when \code{global_p_adjust != "none"} and there are
@@ -115,14 +129,18 @@ constrained model): statistic, df \eqn{= K} (1 discrimination plus
 the node (\code{p_adjust}); an item is flagged when this is below
 \code{alpha}.}
 \item{\code{RS_type}}{\code{"Recalibration"}, \code{"Reprioritization"},
-\code{"Both"}, or \code{"None"} -- determined by the component LRTs
-(see Details), never by a magnitude cut-point.}
-\item{\code{discr_diff}, \code{thresh_diff}}{Effect sizes: the
+\code{"Both"} or \code{"Undetermined"} for flagged items (see
+Details), \code{"None"} for items not flagged.}
+\item{\code{discr_diff}, \code{thresh_diff}}{Descriptive: the
 absolute T1-vs-T2 discrimination change and the maximum absolute
-threshold change (reported, not used to decide the type).}
+threshold change, from the model in which the item is free.}
+\item{\code{W_slope}, \code{p_slope}, \code{W_location},
+\code{df_location}, \code{p_location}}{The slope and location
+Wald tests for flagged items (\code{type_method = "wald"}).}
+\item{\code{iterations}}{Number of purification passes.}
 \item{\code{RS_magnitude}}{\code{"large"}/\code{"small"} annotation
-of a flagged item's effect size against \code{rs_threshold}
-(\code{NA} for unflagged items).}
+against \code{rs_threshold} (\code{type_method = "threshold"}
+only; otherwise \code{NA}).}
 }
 }
 \item{\code{parameters}}{A named list (one element per node) of
@@ -160,7 +178,7 @@ heterogeneity (captured by the tree) from within-group temporal change
 For each terminal node, a constrained model (all item parameters equal across
 waves) and an unconstrained model (all free) are fitted and compared by
 \deqn{\chi^2 = -2(\ell_{con} - \ell_{uncon}), \qquad
-      \mathrm{df} = \#\{\text{freed constraints}\}.}
+      \mathrm{df} = \#\{\text{freed constraints}\} - 2.}
 The omnibus p-values are then adjusted \strong{across nodes}
 (\code{global_p_adjust}) and \code{RS_detected} is set from the adjusted
 p-value. \strong{Item-level testing is performed only for nodes with}
@@ -182,33 +200,36 @@ adjusted joint p-value is below \code{alpha}. Unflagged items are
 \code{"None"}.
 }
 
-\subsection{Type from the estimated parameter changes (not a confounded LRT)}{
+\subsection{Type: two Wald tests, each with the other parameters free (default)}{
 
-Once an item is flagged, its \emph{type} is read from the estimated
-T1-versus-T2 changes on the IRT (a, b) metric: the absolute discrimination
-change (\code{discr_diff}) indicates \strong{reprioritization} and the
-maximum absolute threshold change (\code{thresh_diff}) indicates
-\strong{recalibration}; both large is \strong{Both}. A flagged item is always
-given a real type -- if both changes are below \code{rs_threshold} it takes
-the larger one, so a significant item is never left untyped.
+Once items are flagged, one model is refitted with standard errors in which
+the flagged items are free across occasions and all other items are
+constrained (they act as anchors). For each flagged item two Wald tests are
+computed in that model:
+\itemize{
+\item \strong{slope test} (reprioritization): \eqn{a_{T1} = a_{T2}},
+df = 1;
+\item \strong{location test} (recalibration): \eqn{b_{k,T1} = b_{k,T2}}
+for all \eqn{K-1} thresholds, df = \eqn{K-1}. It is written without a
+ratio as \eqn{a_{T1} d_{k,T2} - a_{T2} d_{k,T1} = 0} (equivalent because
+\eqn{a > 0}), which the delta method approximates well.
+}
+Each test leaves the other set of parameters free. This matters because
+\pkg{mirt} uses the slope-intercept form \eqn{d = -a\,b}: a pure slope
+change moves the intercepts \eqn{d} but not the thresholds \eqn{b}, so a
+test of \eqn{d} would wrongly react to it, while the test of \eqn{b} does not.
+The label is \code{"Reprioritization"} if only the slope test is
+significant, \code{"Recalibration"} if only the location test is,
+\code{"Both"} if both are, and \code{"Undetermined"} if the item is flagged
+by the joint test but neither component test is significant on its own
+(the shift is real but cannot be attributed with confidence). No magnitude
+cut-off is involved. The estimated changes (\code{discr_diff},
+\code{thresh_diff}) are reported as descriptive information only.
 
-This is deliberate. A tempting alternative -- decomposing the shift with
-nested LRTs that free the discrimination or the thresholds in turn -- does
-\strong{not} work here, because \pkg{mirt} parameterizes the graded model in
-slope-intercept form where the intercept \eqn{d = -a\,b}. A \emph{pure}
-discrimination change (\eqn{a} moves, \eqn{b} constant) therefore forces the
-intercepts to move, so any LRT that frees the intercepts fires for a
-reprioritization item, spuriously flagging recalibration. The estimated
-\eqn{a} and \eqn{b} changes, in contrast, separate the two shift types
-cleanly (\eqn{b = -d/a} un-confounds them), which is why the type is read
-from them. Detection remains a likelihood-ratio test; only the attribution of
-\emph{which} parameter moved uses the estimated changes, and both are
-reported (\code{discr_diff}, \code{thresh_diff}, \code{RS_magnitude}) so the
-classification is fully transparent.
-
-Separating \emph{detection} (is there a shift? -- LRT), \emph{type} (which
-parameter moved? -- estimated change), and \emph{magnitude} (how large? --
-effect size) is the point of the redesign.
+\code{type_method = "threshold"} restores the rule of grmtree <= 0.3.0,
+which labels flagged items by comparing \code{discr_diff} and
+\code{thresh_diff} with \code{rs_threshold}; it is kept for reproducing
+earlier analyses.
 }
 
 \subsection{Hierarchical error control}{
@@ -246,7 +267,7 @@ ltree <- longitudinal_grmtree(
     education + comorbidity_count + ever_smoker,
   data = ld, n_items = 8, control = grmtree.control(minbucket = 200))
 
-# Default: Bonferroni across nodes and within-node; type from component LRTs
+# Default: Bonferroni across nodes and within-node; type from estimated changes
 rs <- rs_characterize(ltree)
 print(rs)
 
