@@ -1,4 +1,59 @@
-## Submission of version 0.3.0
+
+## Submission of version 0.3.1
+
+This is a patch release of the CRAN package `grmtree`. It fixes bugs in the
+response shift functions and adds two options to `rs_characterize()`.
+There are no new dependencies and no breaking changes to existing arguments.
+
+### Bug fixes
+* `rs_characterize()` now freely estimates the follow-up latent variance in the
+  constrained and item-level models, as `longitudinal_grmtree()` already does.
+  Before, a change in trait dispersion could be mistaken for response shift.
+  The omnibus test degrees of freedom now come from the number of
+  estimated parameters.
+* When a response category was observed at one occasion but not the other,
+  the cross-occasion constraints tied together thresholds of different
+  categories. That category is now merged with its neighbour at both occasions
+  before fitting.
+* Item names no longer carry the response-variable prefix added by `partykit`.
+* Node coefficients are stored as a named vector of item parameters, so
+  `coef()` and `print()` report them correctly.
+* The tree-wide adjustment methods now keep all `mob_control()` settings
+  passed through `grmtree.control()`. Before, only `minbucket` and `mtry`
+  were kept.
+* The `mtry` argument of `grmtree()` and `longitudinal_grmtree()` is now honoured.
+
+### New features
+* `rs_characterize()` gains `purify` and `max_iter` for iterative purification
+  of the item-level tests. The default (`purify = FALSE`) keeps the previous
+  behaviour.
+* `rs_characterize()` gains `type_method`. The new default, `"wald"`, labels
+  each flagged item with Wald slope and location tests instead of a magnitude
+  cut-off. `type_method = "threshold"` keeps the 0.3.0 rule.
+* New `logLik()` method for GRM trees, which makes `AIC()` and `BIC()` available.
+
+### Notes on check time
+New tests use small simulated data, and the slower fits are guarded with
+`skip_on_cran()`. Computationally intensive vignette chunks still use
+`eval = FALSE` with pre-computed output, so the CRAN check time stays under
+10 minutes.
+
+## R CMD check results
+0 errors | 0 warnings | 0 notes on win-builder (R-devel).
+
+On the local Windows machine, R CMD check reports one WARNING that
+dependencies (partykit, mirt, libcoin, mvtnorm) were "built under R version
+4.5.3" while running R 4.5.1. This is a local version mismatch only and does
+not occur on CRAN's build systems.
+
+## Test environments
+* local Windows 11, R 4.5.1
+* GitHub Actions (ubuntu-latest, windows-latest, macos-latest)
+* win-builder (R-devel)
+
+---
+
+## Previous submission (version 0.3.0)
 
 This is a feature update to the CRAN package `grmtree`. This update added new features:
 
@@ -39,7 +94,7 @@ not occur on CRAN's build systems.
 This was a patch release of the CRAN package `grmtree` with bug fixes to the
 GRM Forest functions. No user-facing API changes.
 
-### Comment reploy
+### Comment reply
 * Reduced test and vignette check time so overall check time is well under 10 minutes. 
   Removed the gnu.org license URL from README (replaced with the CRAN license page) 
   to avoid the transient connection timeout flagged in the pre-test.

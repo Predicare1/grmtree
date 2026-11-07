@@ -22,7 +22,7 @@ The package also implements the **Longitudinal GRMTree** for detecting **respons
 ## Key Features
 
 -   **DIF Detection**: Advanced algorithms for detecting differential item functioning in polytomous items using model-based recursive partitioning
--   **Response Shift Detection**: Longitudinal GRMTree for detecting and characterizing response shift (recalibration, reprioritization) in PROMs measured at two time points
+-   **Response Shift Detection**: Longitudinal GRMTree for detecting response shift in PROMs measured at two time points, with purified item-level tests and Wald-based labelling of recalibration and reprioritization
 -   **Visual Analytics**: Specialized plotting functions for visualizing threshold parameters, discrimination parameters, factor score distributions, and response shift across terminal nodes
 -   **Parameter Extraction**: Comprehensive methods for extracting and analyzing item parameters (thresholds, discrimination), factor scores, and node-specific characteristics
 -   **Ensemble Methods**: GRM Forests for both cross-sectional and longitudinal trees, with permutation variable importance
@@ -33,7 +33,7 @@ This package is particularly valuable for researchers, psychometricians, and hea
 
 ## Installation
 
-Install from CRAN (when available):
+Install from CRAN:
 
 ```{r}
 install.packages("grmtree")
@@ -126,8 +126,9 @@ tree <- longitudinal_grmtree(
 print(tree)
 
 # Phase 2: characterize response shift within each subgroup
-rs <- rs_characterize(tree, p_adjust = "fdr", global_p_adjust = "bonferroni")
-print(rs)
+rs <- rs_characterize(tree, p_adjust = "fdr", global_p_adjust = "bonferroni",
+                      purify = TRUE)
+print(rs)   # flagged items are labelled by Wald slope / location tests
 
 # Visualize response shift
 plot_rs_tree(tree, rs)
